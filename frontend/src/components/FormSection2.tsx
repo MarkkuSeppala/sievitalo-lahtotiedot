@@ -10,7 +10,7 @@ interface FormSection2Props {
   saving: boolean;
 }
 
-export default function FormSection2({ data, token, onSave, onDeleteFile, onSubmit, onBack, saving }: FormSection2Props) {
+export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onBack, saving }: FormSection2Props) {
   const [fields, setFields] = useState<any>({
     huom_kuvaus: '',
     vesijohtotiedot: '',

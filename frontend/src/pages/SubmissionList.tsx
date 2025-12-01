@@ -17,7 +17,6 @@ export default function SubmissionList() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
   const token = searchParams.get('token');
 
   useEffect(() => {

@@ -8,7 +8,7 @@ interface FormSection1Props {
   onNext: () => void;
 }
 
-export default function FormSection1({ data, token, onSave, onDeleteFile, onNext }: FormSection1Props) {
+export default function FormSection1({ data, onSave, onDeleteFile, onNext }: FormSection1Props) {
   const [fields, setFields] = useState<any>({
     email: '',
     name1: '',
