@@ -1,0 +1,14 @@
+{
+  "name": "lahtotiedot",
+  "version": "1.0.0",
+  "description": "Suunnittelun lähtötiedot -sovellus",
+  "scripts": {
+    "dev": "docker-compose up",
+    "build": "docker-compose build",
+    "down": "docker-compose down"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
+
