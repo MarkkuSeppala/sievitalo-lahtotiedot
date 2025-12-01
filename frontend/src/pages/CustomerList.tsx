@@ -101,14 +101,15 @@ export default function CustomerList() {
                 </td>
                 <td style={{ padding: '10px' }}>{customer.submission_count || 0}</td>
                 <td style={{ padding: '10px' }}>
-                  <Link
-                    to={`/form/${customer.token}`}
+                  <a
+                    href={`${window.location.origin}/form/${customer.token}`}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="btn btn-secondary"
-                    style={{ marginRight: '5px' }}
+                    style={{ marginRight: '5px', textDecoration: 'none', display: 'inline-block' }}
                   >
                     Avaa lomake
-                  </Link>
+                  </a>
                   {customer.submission_count > 0 && (
                     <Link to={`/submissions?token=${customer.token}`} className="btn btn-primary" style={{ marginRight: '5px' }}>
                       Vastaukset
