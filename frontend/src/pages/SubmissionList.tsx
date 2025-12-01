@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
 
 interface Submission {
   id: number;
