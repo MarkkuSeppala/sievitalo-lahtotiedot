@@ -54,9 +54,11 @@ export default function CreateCustomer() {
           </div>
           {error && <div className="error">{error}</div>}
           {success && <div className="success">{success}</div>}
-          <button type="submit" className="btn btn-primary">
-            Luo asiakastunnus
-          </button>
+          {!formUrl && (
+            <button type="submit" className="btn btn-primary">
+              Luo asiakastunnus
+            </button>
+          )}
         </form>
 
         {formUrl && (
