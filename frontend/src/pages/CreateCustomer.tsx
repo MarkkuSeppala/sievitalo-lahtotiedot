@@ -5,7 +5,6 @@ import axios from 'axios';
 export default function CreateCustomer() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [formUrl, setFormUrl] = useState('');
@@ -16,7 +15,6 @@ export default function CreateCustomer() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setLoading(true);
 
     try {
       const response = await axios.post(
@@ -28,8 +26,6 @@ export default function CreateCustomer() {
       setSuccess('Asiakastunnus luotu! Kopioi linkki alla olevasta kentästä ja lähetä se asiakkaalle.');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Asiakastunnuksen luonti epäonnistui');
-    } finally {
-      setLoading(false);
     }
   };
 
