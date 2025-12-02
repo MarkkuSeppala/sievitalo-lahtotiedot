@@ -13,7 +13,7 @@ export default function Dashboard() {
         <p>Käytä navigaatiota siirtyäksesi eri osioihin.</p>
       </div>
 
-      {user?.role === 'edustaja' && (
+      {(user?.role === 'edustaja' || user?.role === 'admin') && (
         <div className="card">
           <h3 style={{ marginBottom: '15px' }}>Toiminnot</h3>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
