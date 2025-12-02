@@ -21,3 +21,4 @@ async function runMigrations() {
 
 runMigrations().catch(console.error);
 
+

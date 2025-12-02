@@ -12,7 +12,6 @@ interface FormSection2Props {
 
 export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onBack, saving }: FormSection2Props) {
   const [fields, setFields] = useState<any>({
-    huom_kuvaus: '',
     vesijohtotiedot: '',
     salaoja_sadevesi: '',
     viemarointi: '',
@@ -135,15 +134,6 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
           Julkisivujen värit ja värikoodit tulee syöttää Raksa-ohjelman materiaalivalikkoon suunnitteluvaiheessa.
           Raksa-ohjelman tunnukset toimitetaan myöhemmin.
         </p>
-      </div>
-
-      <div className="form-group">
-        <label>Kuvaus (valinnainen)</label>
-        <textarea
-          value={fields.huom_kuvaus || ''}
-          onChange={(e) => handleChange('huom_kuvaus', e.target.value)}
-          rows={3}
-        />
       </div>
 
       <div style={{ marginTop: '30px', marginBottom: '20px' }}>
