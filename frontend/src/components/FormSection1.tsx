@@ -99,6 +99,17 @@ export default function FormSection1({ data, onSave, onDeleteFile, onNext }: For
 
   return (
     <div className="card">
+      <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+        <img
+          src="/sievitalo-logo.png"
+          alt="Sievitalo"
+          style={{
+            height: '105px',
+            width: 'auto',
+            objectFit: 'contain'
+          }}
+        />
+      </div>
       <h2>Osio 1/2</h2>
 
       <div className="form-group">
