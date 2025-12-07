@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { pool } from '../db';
 import path from 'path';
 import fs from 'fs';
+import { sendFormSubmissionEmail } from '../services/emailService';
 
 export const getSubmissionByToken = async (req: Request, res: Response) => {
   try {
@@ -9,7 +10,7 @@ export const getSubmissionByToken = async (req: Request, res: Response) => {
 
     // Get customer
     const customerResult = await pool.query(
-      'SELECT id, name, email, token FROM customers WHERE token = $1',
+      'SELECT id, name, email, token, name1, name2 FROM customers WHERE token = $1',
       [token]
     );
 
@@ -224,9 +225,12 @@ export const submitForm = async (req: Request, res: Response) => {
     const fields = req.body.fields ? JSON.parse(req.body.fields) : {};
     const files = req.files as Express.Multer.File[] | undefined;
 
-    // Get customer
+    // Get customer with representative email
     const customerResult = await pool.query(
-      'SELECT id FROM customers WHERE token = $1',
+      `SELECT c.id, c.name, c.email, u.email as edustaja_email
+       FROM customers c
+       LEFT JOIN users u ON c.edustaja_id = u.id
+       WHERE c.token = $1`,
       [token]
     );
 
@@ -234,7 +238,8 @@ export const submitForm = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Invalid token' });
     }
 
-    const customerId = customerResult.rows[0].id;
+    const customer = customerResult.rows[0];
+    const customerId = customer.id;
 
     // Get or create submission
     let submissionResult = await pool.query(
@@ -284,6 +289,24 @@ export const submitForm = async (req: Request, res: Response) => {
            VALUES ($1, $2, $3, $4)`,
           [submissionId, fieldName, file.originalname, fileUrl]
         );
+      }
+    }
+
+    // Send email to representative
+    if (customer.edustaja_email) {
+      try {
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const formUrl = `${frontendUrl}/submissions/${submissionId}`;
+        
+        await sendFormSubmissionEmail({
+          customerName: customer.name,
+          customerEmail: customer.email,
+          representativeEmail: customer.edustaja_email,
+          formUrl: formUrl
+        });
+      } catch (emailError) {
+        // Log error but don't fail the submission
+        console.error('Failed to send email notification:', emailError);
       }
     }
 

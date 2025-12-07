@@ -5,6 +5,8 @@ import axios from 'axios';
 export default function CreateCustomer() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [name1, setName1] = useState('');
+  const [name2, setName2] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [formUrl, setFormUrl] = useState('');
@@ -19,7 +21,7 @@ export default function CreateCustomer() {
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/customers`,
-        { name, email }
+        { name, email, name1, name2 }
       );
 
       setFormUrl(response.data.formUrl);
@@ -50,6 +52,23 @@ export default function CreateCustomer() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+            />
+          </div>
+          <div className="form-group">
+            <label>Asiakas 1 nimi *</label>
+            <input
+              type="text"
+              value={name1}
+              onChange={(e) => setName1(e.target.value)}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>Asiakas 2 nimi</label>
+            <input
+              type="text"
+              value={name2}
+              onChange={(e) => setName2(e.target.value)}
             />
           </div>
           {error && <div className="error">{error}</div>}

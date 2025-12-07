@@ -136,6 +136,7 @@ export default function FormView() {
       {currentSection === 1 ? (
         <FormSection1
           data={data.submission}
+          customer={data.customer}
           token={token || ''}
           onSave={async (fields, files, fieldNames) => {
             await handleSave(fields, files, fieldNames);

@@ -2,17 +2,17 @@ import { useState, useEffect } from 'react';
 
 interface FormSection1Props {
   data: any;
+  customer?: any;
   token: string;
   onSave: (fields: any, files?: FileList, fieldNames?: Record<string, string>) => void;
   onDeleteFile: (fileId: number) => void;
   onNext: () => void;
 }
 
-export default function FormSection1({ data, onSave, onDeleteFile, onNext }: FormSection1Props) {
+export default function FormSection1({ data, customer, onSave, onDeleteFile, onNext }: FormSection1Props) {
   const [fields, setFields] = useState<any>({
-    email: '',
-    name1: '',
-    name2: '',
+    name1: customer?.name1 || '',
+    name2: customer?.name2 || '',
     rakennuspaikkakunta: '',
     talousrakennus_ulkomitat: '',
     sokkelin_korko: '',
@@ -26,7 +26,15 @@ export default function FormSection1({ data, onSave, onDeleteFile, onNext }: For
     if (data?.fields) {
       setFields((prev: any) => ({ ...prev, ...data.fields }));
     }
-  }, [data]);
+    // Pre-fill name1 and name2 from customer data if not already in fields
+    if (customer) {
+      setFields((prev: any) => ({
+        ...prev,
+        name1: prev.name1 || customer.name1 || '',
+        name2: prev.name2 || customer.name2 || ''
+      }));
+    }
+  }, [data, customer]);
   
   // Get saved files from data
   const savedFiles = data?.files || {};
@@ -111,16 +119,6 @@ export default function FormSection1({ data, onSave, onDeleteFile, onNext }: For
         />
       </div>
       <h2>Osio 1/2</h2>
-
-      <div className="form-group">
-        <label>Sähköposti</label>
-        <input
-          type="email"
-          value={fields.email || ''}
-          onChange={(e) => handleChange('email', e.target.value)}
-          required
-        />
-      </div>
 
       <div style={{ marginTop: '30px', marginBottom: '20px' }}>
         <h3>Rakentajien nimet ja rakennuspaikkakunta</h3>

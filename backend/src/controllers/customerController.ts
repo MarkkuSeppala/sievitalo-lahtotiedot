@@ -5,11 +5,11 @@ import { AuthRequest } from '../middleware/auth';
 
 export const createCustomer = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, name1, name2 } = req.body;
     const userId = req.user?.id;
 
-    if (!name || !email) {
-      return res.status(400).json({ error: 'Name and email required' });
+    if (!name || !email || !name1) {
+      return res.status(400).json({ error: 'Name, email, and name1 required' });
     }
 
     if (req.user?.role !== 'edustaja' && req.user?.role !== 'admin') {
@@ -20,10 +20,10 @@ export const createCustomer = async (req: AuthRequest, res: Response) => {
     const token = uuidv4();
 
     const result = await pool.query(
-      `INSERT INTO customers (name, email, token, edustaja_id, created_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       RETURNING id, name, email, token, created_at`,
-      [name, email, token, userId]
+      `INSERT INTO customers (name, email, token, edustaja_id, name1, name2, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       RETURNING id, name, email, token, name1, name2, created_at`,
+      [name, email, token, userId, name1, name2 || null]
     );
 
     res.status(201).json({
