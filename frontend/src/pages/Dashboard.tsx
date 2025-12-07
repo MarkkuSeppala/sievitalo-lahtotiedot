@@ -40,6 +40,17 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {user?.role === 'admin' && (
+        <div className="card">
+          <h3 style={{ marginBottom: '15px' }}>Järjestelmänhallinta</h3>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <Link to="/representatives/new" className="btn btn-primary">
+              Luo uusi käyttäjä
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

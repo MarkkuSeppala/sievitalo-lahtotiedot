@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db';
+import { AuthRequest } from '../middleware/auth';
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -47,8 +48,13 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const register = async (req: Request, res: Response) => {
+export const register = async (req: AuthRequest, res: Response) => {
   try {
+    // Only admin can create new users
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admin can create users' });
+    }
+
     const { email, password, role } = req.body;
 
     if (!email || !password || !role) {

@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CustomerList from './pages/CustomerList';
 import CreateCustomer from './pages/CreateCustomer';
+import CreateRepresentative from './pages/CreateRepresentative';
 import FormView from './pages/FormView';
 import SubmissionView from './pages/SubmissionView';
 import SubmissionList from './pages/SubmissionList';
@@ -18,6 +19,31 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" />;
+  }
+
+  return <>{children}</>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  if (user.role !== 'admin') {
+    return (
+      <div className="container">
+        <div className="card">
+          <h2>Pääsy kielletty</h2>
+          <p>Sinulla ei ole oikeuksia tähän sivuun.</p>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
@@ -70,6 +96,14 @@ function AppRoutes() {
             <ProtectedRoute>
               <SubmissionView />
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/representatives/new"
+          element={
+            <AdminRoute>
+              <CreateRepresentative />
+            </AdminRoute>
           }
         />
         <Route path="/" element={<Navigate to="/dashboard" />} />

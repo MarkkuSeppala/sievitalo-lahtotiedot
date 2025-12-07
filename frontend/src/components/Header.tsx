@@ -39,6 +39,11 @@ export default function Header() {
             <Link to="/submissions" style={{ textDecoration: 'none', color: '#333' }}>
               Vastaukset
             </Link>
+            {user.role === 'admin' && (
+              <Link to="/representatives/new" style={{ textDecoration: 'none', color: '#333' }}>
+                Luo käyttäjä
+              </Link>
+            )}
           </nav>
         )}
       </div>
