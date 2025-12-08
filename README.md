@@ -146,6 +146,7 @@ Aseta seuraavat ympäristömuuttujat Renderin dashboardissa backend-palvelulle:
 
 **Pakolliset:**
 - `JWT_SECRET` - Vahva salaisuus JWT-tokenien allekirjoitukseen (esim. generoi: `openssl rand -base64 32`)
+  - **TÄRKEÄÄ:** Jos tämä puuttuu tai on eri kuin kehitysympäristössä, tokenit eivät toimi. Käyttäjien täytyy kirjautua uudelleen tuotannossa.
 - `FRONTEND_URL` - Frontend-palvelun URL Renderissä (esim. `https://lahtotiedot-frontend.onrender.com`)
 - `RESEND_API_KEY` - Resend API-avain sähköpostien lähettämiseen
 - `RESEND_FROM_EMAIL` - Lähettäjän sähköpostiosoite (vahvistettu domain, esim. `noreply@sievitalo.fi`)
