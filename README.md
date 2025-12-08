@@ -153,6 +153,7 @@ Aseta seuraavat ympäristömuuttujat Renderin dashboardissa backend-palvelulle:
 
 **Vapaaehtoiset:**
 - `RESEND_TEST_EMAIL` - Testauskäyttöön (ohjaa kaikki sähköpostit tähän osoitteeseen)
+  - **Tärkeää:** Jos käytät Resendin testitilaa (ei vahvistettua domainia), aseta tämä API-avaimen rekisteröityyn osoitteeseen (esim. `markku.seppala@gmail.com`). Tämä toimii myös tuotannossa, jos käytät testitilaa.
 
 **Automaattisesti asetettavat:**
 - `DATABASE_URL` - Asetetaan automaattisesti PostgreSQL-palvelusta

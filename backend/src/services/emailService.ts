@@ -33,15 +33,14 @@ export const sendFormSubmissionEmail = async (data: FormSubmissionEmailData): Pr
       ? fromEmailRaw 
       : `Lähtötiedot-järjestelmä <${fromEmailRaw}>`;
     
-    // In development/test mode, redirect emails to test address if configured
+    // If RESEND_TEST_EMAIL is set, redirect all emails to that address
     // This is needed because Resend test mode only allows sending to the API key's registered email
-    // Check for development mode (NODE_ENV can be 'development' or not 'production')
-    const isDevelopment = process.env.NODE_ENV !== 'production';
+    // Use test email if configured, regardless of NODE_ENV (useful for test API keys in production)
     const testEmail = process.env.RESEND_TEST_EMAIL;
-    const actualRecipient = (isDevelopment && testEmail) ? testEmail : representativeEmail;
+    const actualRecipient = testEmail ? testEmail : representativeEmail;
     
-    if (isDevelopment && testEmail && actualRecipient !== representativeEmail) {
-      console.log(`⚠️ Development mode: Redirecting email from ${representativeEmail} to test address ${testEmail}`);
+    if (testEmail && actualRecipient !== representativeEmail) {
+      console.log(`⚠️ Test mode: Redirecting email from ${representativeEmail} to test address ${testEmail}`);
     }
     
     console.log(`📧 Attempting to send email to ${actualRecipient} from ${fromEmail}`);
