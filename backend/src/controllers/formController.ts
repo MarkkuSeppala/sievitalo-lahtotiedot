@@ -298,16 +298,26 @@ export const submitForm = async (req: Request, res: Response) => {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const formUrl = `${frontendUrl}/submissions/${submissionId}`;
         
+        console.log(`📧 Sending email notification for submission ${submissionId} to ${customer.edustaja_email}`);
         await sendFormSubmissionEmail({
           customerName: customer.name,
           customerEmail: customer.email,
           representativeEmail: customer.edustaja_email,
           formUrl: formUrl
         });
-      } catch (emailError) {
+        console.log(`✅ Email notification sent successfully for submission ${submissionId}`);
+      } catch (emailError: any) {
         // Log error but don't fail the submission
-        console.error('Failed to send email notification:', emailError);
+        console.error('❌ Failed to send email notification:', {
+          error: emailError.message,
+          stack: emailError.stack,
+          representativeEmail: customer.edustaja_email,
+          submissionId: submissionId
+        });
+        // Still return success, but log the email failure
       }
+    } else {
+      console.warn(`⚠️ No representative email found for customer ${customer.id}, skipping email notification`);
     }
 
     res.json({ success: true, submissionId, message: 'Form submitted successfully' });

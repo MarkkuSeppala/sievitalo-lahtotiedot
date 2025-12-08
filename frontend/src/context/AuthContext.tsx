@@ -43,17 +43,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/login`, {
-      email,
-      password
-    });
+    try {
+      console.log('🔐 Attempting login for:', email);
+      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+        email,
+        password
+      });
 
-    const { token: newToken, user: newUser } = response.data;
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      console.log('✅ Login response received:', response.data);
+      const { token: newToken, user: newUser } = response.data;
+      setToken(newToken);
+      setUser(newUser);
+      localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(newUser));
+      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+    } catch (error: any) {
+      console.error('❌ Login error:', error);
+      console.error('Response:', error.response?.data);
+      console.error('Status:', error.response?.status);
+      throw error;
+    }
   };
 
   const logout = () => {

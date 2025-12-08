@@ -24,7 +24,21 @@ Sovellus korvaa Google Forms -lomakkeen rakennuslupakuvien suunnittelun lähtöt
    ```bash
    cp backend/.env.example backend/.env
    ```
-3. Käynnistä Docker-ympäristö:
+3. Aseta sähköpostipalvelun ympäristömuuttujat (Resend):
+   ```bash
+   export RESEND_API_KEY="your_resend_api_key_here"
+   export RESEND_FROM_EMAIL="onboarding@resend.dev"  # Vapaaehtoinen (kehitys)
+   export RESEND_TEST_EMAIL="your-email@gmail.com"  # Vapaaehtoinen (kehitys)
+   export FRONTEND_URL="http://localhost:3000"  # Vapaaehtoinen
+   ```
+   
+   **Huom**: 
+   - Kehitysvaiheessa käytetään Resendin oletusdomainia (`onboarding@resend.dev`), joka toimii ilman domain-vahvistusta.
+   - Resendin testitilassa voi lähettää sähköpostia vain API-avaimen rekisteröityyn osoitteeseen. Aseta `RESEND_TEST_EMAIL` API-avaimen rekisteröityyn osoitteeseen (esim. `markku.seppala@gmail.com`), jotta kaikki sähköpostit ohjataan tähän osoitteeseen kehitysympäristössä.
+   - Tuotannossa täytyy vahvistaa oma domain Resendissä ja asettaa `RESEND_FROM_EMAIL` esim. `noreply@sievitalo.fi`.
+   
+   Vaihtoehtoisesti voit luoda `.env` tiedoston projektin juureen ja lisätä muuttujat sinne.
+4. Käynnistä Docker-ympäristö:
    ```bash
    docker-compose up
    ```
@@ -44,11 +58,22 @@ docker-compose exec backend npm run migrate:up
 
 ### Ensimmäinen käyttäjä
 
-Luo ensimmäinen käyttäjä (edustaja tai suunnittelija) API:n kautta:
+Luo ensimmäinen admin-käyttäjä skriptillä:
+
+```bash
+# Luo admin-käyttäjä oletusarvoilla (admin@sievitalo.fi / admin123)
+docker-compose exec backend npm run create-admin
+
+# Tai määritä email ja salasana
+docker-compose exec backend npm run create-admin markku.seppala@sievitalo.fi salasana123
+```
+
+Kun admin-käyttäjä on luotu, voit kirjautua sisään ja luoda muita käyttäjiä (edustaja, suunnittelija, admin) käyttöliittymän kautta tai API:n kautta:
 
 ```bash
 curl -X POST http://localhost:3001/api/auth/register \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
   -d '{
     "email": "edustaja@example.com",
     "password": "salasana",
@@ -104,12 +129,69 @@ curl -X POST http://localhost:3001/api/auth/register \
 - **Suunnittelija**: Tarkastelee vastauksia (vain luku)
 - **Asiakas**: Täyttää lomakkeen tokenilla (ei kirjautumista)
 
-## Tuotantoon siirto
+## Tuotantoon siirto Renderiin
 
-1. Konfiguroi ympäristömuuttujat Renderissä
-2. Aseta S3-credentials tiedostotallennukseen
-3. Aja tietokantamigraatiot
-4. Deploy Renderiin
+### 1. Render-palvelut
+
+Projekti käyttää `render.yaml` tiedostoa, joka määrittelee kaikki tarvittavat palvelut:
+- PostgreSQL-tietokanta
+- Backend Web Service
+- Frontend Web Service
+
+### 2. Ympäristömuuttujat Renderissä
+
+#### Backend-palvelu
+
+Aseta seuraavat ympäristömuuttujat Renderin dashboardissa backend-palvelulle:
+
+**Pakolliset:**
+- `JWT_SECRET` - Vahva salaisuus JWT-tokenien allekirjoitukseen (esim. generoi: `openssl rand -base64 32`)
+- `FRONTEND_URL` - Frontend-palvelun URL Renderissä (esim. `https://lahtotiedot-frontend.onrender.com`)
+- `RESEND_API_KEY` - Resend API-avain sähköpostien lähettämiseen
+- `RESEND_FROM_EMAIL` - Lähettäjän sähköpostiosoite (vahvistettu domain, esim. `noreply@sievitalo.fi`)
+
+**Vapaaehtoiset:**
+- `RESEND_TEST_EMAIL` - Testauskäyttöön (ohjaa kaikki sähköpostit tähän osoitteeseen)
+
+**Automaattisesti asetettavat:**
+- `DATABASE_URL` - Asetetaan automaattisesti PostgreSQL-palvelusta
+- `PORT` - Asetetaan automaattisesti Renderissä (3001)
+- `NODE_ENV` - Asetetaan automaattisesti `production`
+- `UPLOAD_DIR` - Asetettu `/tmp/uploads` (ephemeral, harkitse S3:ta tuotannossa)
+
+#### Frontend-palvelu
+
+Aseta seuraava ympäristömuuttuja frontend-palvelulle:
+
+- `VITE_API_URL` - Backend-palvelun URL Renderissä (esim. `https://lahtotiedot-backend.onrender.com`)
+
+### 3. Deploy-prosessi
+
+1. Pushaa koodi GitHubiin
+2. Yhdistä GitHub-repositorio Renderiin
+3. Render lukee `render.yaml` tiedoston ja luo palvelut automaattisesti
+4. Aseta ympäristömuuttujat Renderin dashboardissa (katso yllä)
+5. Tietokantamigraatiot ajetaan automaattisesti backendin ensimmäisellä käynnistyksellä
+
+### 4. Ensimmäinen käyttäjä
+
+Kun palvelut ovat käynnissä, luo ensimmäinen admin-käyttäjä Renderin shell-konsolissa:
+
+```bash
+# Renderin dashboardissa: Backend-palvelu > Shell
+npm run create-admin admin@sievitalo.fi salasana123
+```
+
+### 5. Tiedostotallennus
+
+**Huomio:** Renderin filesystem on ephemeral (väliaikainen). Tiedostot katoavat palvelun uudelleenkäynnistyksessä. Tuotannossa suositellaan:
+
+- AWS S3 -tallennusta tiedostoille
+- Tietokantaan tallennusta pienten tiedostojen osalta
+
+### 6. CORS-asetukset
+
+Backend on konfiguroitu sallimaan pyynnöt `FRONTEND_URL` ympäristömuuttujassa määritellyltä domainilta. Varmista, että `FRONTEND_URL` on asetettu oikein backend-palvelussa.
 
 
 

@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "create-admin": "tsx scripts/createAdmin.ts",
+    "check-users": "tsx scripts/checkUsers.ts",
+    "reset-password": "tsx scripts/resetPassword.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

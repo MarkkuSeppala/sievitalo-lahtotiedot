@@ -12,27 +12,43 @@ export const login = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
+    // Check JWT_SECRET
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET is not set');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+
+    console.log(`🔐 Login attempt for: ${email}`);
+
     const result = await pool.query(
       'SELECT id, email, password_hash, role FROM users WHERE email = $1',
       [email]
     );
 
     if (result.rows.length === 0) {
+      console.log(`❌ User not found: ${email}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const user = result.rows[0];
+    console.log(`✅ User found: ${user.email}, role: ${user.role}`);
+
     const isValid = await bcrypt.compare(password, user.password_hash);
 
     if (!isValid) {
+      console.log(`❌ Invalid password for: ${email}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log(`✅ Password valid for: ${email}`);
+
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || '',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
+
+    console.log(`✅ Login successful for: ${email}`);
 
     res.json({
       token,
@@ -42,8 +58,9 @@ export const login = async (req: Request, res: Response) => {
         role: user.role
       }
     });
-  } catch (error) {
-    console.error('Login error:', error);
+  } catch (error: any) {
+    console.error('❌ Login error:', error.message);
+    console.error('Stack:', error.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

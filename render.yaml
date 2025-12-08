@@ -1,0 +1,47 @@
+﻿services:
+  # PostgreSQL Database
+  - type: pg
+    name: lahtotiedot-db
+    plan: starter
+    databaseName: lahtotiedot
+    user: lahtotiedot
+
+  # Backend Web Service
+  - type: web
+    name: lahtotiedot-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lahtotiedot-db
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: RESEND_TEST_EMAIL
+        sync: false
+      - key: UPLOAD_DIR
+        value: /tmp/uploads
+
+  # Frontend Web Service
+  - type: web
+    name: lahtotiedot-frontend
+    env: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    plan: starter
+    envVars:
+      - key: VITE_API_URL
+        sync: false
