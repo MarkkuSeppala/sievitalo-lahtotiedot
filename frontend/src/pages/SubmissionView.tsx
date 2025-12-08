@@ -13,6 +13,20 @@ const FILE_FIELD_LABELS: Record<string, string> = {
   general: 'Yleiset tiedostot'
 };
 
+// Mapping of field names to human-readable labels for form fields
+const FIELD_LABELS: Record<string, string> = {
+  vesi_viemari_liitos: 'Vesi- ja viemäriliitoskohtalausunto ja johtokartta',
+  sokkelin_korko: 'Sokkelin korko',
+  talousrakennus_ulkomitat: 'Talousrakennus ulkomitat',
+  sahko_liittymiskohta: 'Sähköliittymiskohta',
+  radonin_torjunta: 'Radonin torjunta',
+  sahkoverkkoyhtio: 'Sähköverkkoyhtiö',
+  paasulakekoko: 'Pääsulakekoko',
+  lamponlahde: 'Lämmönlähde',
+  viemarointi: 'Viemäröinti',
+  salaoja_sadevesi: 'Salaoja ja sadevesi'
+};
+
 export default function SubmissionView() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -207,8 +221,8 @@ export default function SubmissionView() {
               return null;
             }
             
-            // Format field name
-            const fieldName = key
+            // Format field name - use custom label if available, otherwise format automatically
+            const fieldName = FIELD_LABELS[key] || key
               .replace(/_/g, ' ')
               .replace(/\b\w/g, (l) => l.toUpperCase());
             

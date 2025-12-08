@@ -156,17 +156,43 @@ export const exportSubmissionPDF = async (req: AuthRequest, res: Response) => {
     doc.text(`Lähetetty: ${submission.submitted_at ? new Date(submission.submitted_at).toLocaleString('fi-FI') : 'Ei lähetetty'}`);
     doc.moveDown();
 
+    // Mapping of field names to human-readable labels
+    const FIELD_LABELS: Record<string, string> = {
+      vesi_viemari_liitos: 'Vesi- ja viemäriliitoskohtalausunto ja johtokartta',
+      sokkelin_korko: 'Sokkelin korko',
+      talousrakennus_ulkomitat: 'Talousrakennus ulkomitat',
+      sahko_liittymiskohta: 'Sähköliittymiskohta',
+      radonin_torjunta: 'Radonin torjunta',
+      sahkoverkkoyhtio: 'Sähköverkkoyhtiö',
+      paasulakekoko: 'Pääsulakekoko',
+      lamponlahde: 'Lämmönlähde',
+      viemarointi: 'Viemäröinti',
+      salaoja_sadevesi: 'Salaoja ja sadevesi'
+    };
+
     // Fields
     doc.fontSize(16).text('Vastaukset:', { underline: true });
     doc.moveDown();
 
     fieldsResult.rows.forEach((row: any) => {
-      const fieldName = row.field_name.replace(/_/g, ' ');
+      // Use custom label if available, otherwise format automatically
+      const fieldName = FIELD_LABELS[row.field_name] || row.field_name.replace(/_/g, ' ');
       const fieldValue = JSON.parse(row.field_value);
       doc.fontSize(12).text(`${fieldName}:`, { continued: true });
       doc.text(Array.isArray(fieldValue) ? fieldValue.join(', ') : String(fieldValue));
       doc.moveDown(0.5);
     });
+
+    // Mapping of file field names to human-readable labels
+    const FILE_FIELD_LABELS: Record<string, string> = {
+      kaavaote: 'Kaavaote, kaavamääräykset, rakentamistapaohjeet',
+      tonttikartta: 'Virallinen tonttikartta asemapiirroksen laatimista varten myös sähköisenä dwg-muodossa',
+      vesi_viemari_lausunto: 'Mikäli vesi- ja viemäriliitoskohtalausunto ja johtokartta tarvitaan, lataa dokumentit tässä.',
+      sijoitusluonnos: 'Sijoitusluonnos',
+      pohjatutkimus: 'Pohjatutkimusaineisto (maaperätutkimus ja perustamistapalausunto)',
+      sahko_sijoitusluonnos: 'Sijoitusluonnos sähköasemapiirrosta varten.',
+      general: 'Yleiset tiedostot'
+    };
 
     // Files
     if (filesResult.rows.length > 0) {
@@ -175,7 +201,8 @@ export const exportSubmissionPDF = async (req: AuthRequest, res: Response) => {
       doc.moveDown();
 
       filesResult.rows.forEach((row: any) => {
-        const fieldName = row.field_name.replace(/_/g, ' ');
+        // Use custom label if available, otherwise format automatically
+        const fieldName = FILE_FIELD_LABELS[row.field_name] || row.field_name.replace(/_/g, ' ');
         doc.fontSize(12).text(`${fieldName}: ${row.file_name}`);
       });
     }
