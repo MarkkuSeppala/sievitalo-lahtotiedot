@@ -71,7 +71,7 @@ export const getSubmissionById = async (req: AuthRequest, res: Response) => {
     );
 
     const fields: Record<string, any> = {};
-    fieldsResult.rows.forEach((row) => {
+    fieldsResult.rows.forEach((row: any) => {
       try {
         // Parse JSON if it's a string, otherwise use as-is
         if (typeof row.field_value === 'string') {
@@ -87,7 +87,7 @@ export const getSubmissionById = async (req: AuthRequest, res: Response) => {
     });
 
     const files: Record<string, any[]> = {};
-    filesResult.rows.forEach((row) => {
+    filesResult.rows.forEach((row: any) => {
       if (!files[row.field_name]) {
         files[row.field_name] = [];
       }
@@ -160,7 +160,7 @@ export const exportSubmissionPDF = async (req: AuthRequest, res: Response) => {
     doc.fontSize(16).text('Vastaukset:', { underline: true });
     doc.moveDown();
 
-    fieldsResult.rows.forEach((row) => {
+    fieldsResult.rows.forEach((row: any) => {
       const fieldName = row.field_name.replace(/_/g, ' ');
       const fieldValue = JSON.parse(row.field_value);
       doc.fontSize(12).text(`${fieldName}:`, { continued: true });
@@ -174,7 +174,7 @@ export const exportSubmissionPDF = async (req: AuthRequest, res: Response) => {
       doc.fontSize(16).text('Tiedostot:', { underline: true });
       doc.moveDown();
 
-      filesResult.rows.forEach((row) => {
+      filesResult.rows.forEach((row: any) => {
         const fieldName = row.field_name.replace(/_/g, ' ');
         doc.fontSize(12).text(`${fieldName}: ${row.file_name}`);
       });

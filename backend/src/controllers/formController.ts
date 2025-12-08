@@ -51,7 +51,7 @@ export const getSubmissionByToken = async (req: Request, res: Response) => {
     );
 
     const fields: Record<string, any> = {};
-    fieldsResult.rows.forEach((row) => {
+    fieldsResult.rows.forEach((row: any) => {
       try {
         fields[row.field_name] = JSON.parse(row.field_value);
       } catch (e) {
@@ -61,7 +61,7 @@ export const getSubmissionByToken = async (req: Request, res: Response) => {
     });
 
     const files: Record<string, any[]> = {};
-    filesResult.rows.forEach((row) => {
+    filesResult.rows.forEach((row: any) => {
       if (!files[row.field_name]) {
         files[row.field_name] = [];
       }

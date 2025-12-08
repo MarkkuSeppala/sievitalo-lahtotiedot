@@ -101,7 +101,7 @@ export const getCustomerSubmissions = async (req: AuthRequest, res: Response) =>
     );
 
     const submissions = await Promise.all(
-      submissionsResult.rows.map(async (submission) => {
+      submissionsResult.rows.map(async (submission: any) => {
         // Get fields
         const fieldsResult = await pool.query(
           'SELECT field_name, field_value FROM submission_fields WHERE submission_id = $1',
@@ -115,12 +115,12 @@ export const getCustomerSubmissions = async (req: AuthRequest, res: Response) =>
         );
 
         const fields: Record<string, any> = {};
-        fieldsResult.rows.forEach((row) => {
+        fieldsResult.rows.forEach((row: any) => {
           fields[row.field_name] = JSON.parse(row.field_value);
         });
 
         const files: Record<string, any[]> = {};
-        filesResult.rows.forEach((row) => {
+        filesResult.rows.forEach((row: any) => {
           if (!files[row.field_name]) {
             files[row.field_name] = [];
           }
