@@ -55,7 +55,7 @@ export default function BackendWarmupGate({ children }: Props) {
         <div className="warmup-spinner" aria-hidden="true" />
         <h2>Herätetään palvelinta…</h2>
         <p>
-          Renderin ilmaisversiossa palvelin voi olla hetken unessa. Yritetään uudelleen automaattisesti.
+          Odotetaan palvelun käynnistymistä.
         </p>
         <p className="warmup-meta">
           Odotettu {elapsedSeconds}s • yritys #{attempt}
