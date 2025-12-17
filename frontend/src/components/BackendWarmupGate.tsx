@@ -57,9 +57,7 @@ export default function BackendWarmupGate({ children }: Props) {
         <p>
           
         </p>
-        <p className="warmup-meta">
-          Odotettu {elapsedSeconds}s • yritys #{attempt}
-        </p>
+        
       </div>
     </div>
   );
