@@ -53,9 +53,9 @@ export default function BackendWarmupGate({ children }: Props) {
     <div className="warmup-overlay" role="status" aria-live="polite">
       <div className="warmup-card">
         <div className="warmup-spinner" aria-hidden="true" />
-        <h2>Herätetään palvelinta…</h2>
+        <h2>Odotetaan palvelun käynnistymistä…</h2>
         <p>
-          Odotetaan palvelun käynnistymistä.
+          
         </p>
         <p className="warmup-meta">
           Odotettu {elapsedSeconds}s • yritys #{attempt}
