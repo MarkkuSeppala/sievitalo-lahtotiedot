@@ -334,3 +334,5 @@ docker-compose restart backend
 - Jos haluat aloittaa puhtaalta pöydältä, käytä `docker-compose down -v` (poistaa kaikki volyymit)
 - Backend ja frontend käyttävät volume-mountteja, joten koodimuutokset näkyvät automaattisesti ilman uudelleenrakennusta
 - Jos `node_modules` eivät toimi oikein, voit poistaa volyymin: `docker volume rm lahtotiedot_backend_node_modules`
+
+
