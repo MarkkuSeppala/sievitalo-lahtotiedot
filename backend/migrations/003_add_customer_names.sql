@@ -7,3 +7,5 @@ ADD COLUMN IF NOT EXISTS name2 VARCHAR(255);
 -- For now, we'll allow NULL temporarily to avoid issues with existing data
 -- In production, you may want to backfill existing data first
 
+
+
