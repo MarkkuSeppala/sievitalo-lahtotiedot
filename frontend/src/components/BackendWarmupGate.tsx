@@ -13,8 +13,6 @@ export default function BackendWarmupGate({ children }: Props) {
   const apiBase = useMemo(() => import.meta.env.VITE_API_URL || 'http://localhost:3001', []);
 
   const [ready, setReady] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [startedAt] = useState(() => Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -24,8 +22,6 @@ export default function BackendWarmupGate({ children }: Props) {
       let delayMs = 500;
 
       while (!cancelled) {
-        setAttempt((a) => a + 1);
-
         try {
           await axios.get(`${apiBase}/health`, { timeout: 5000 });
           if (!cancelled) setReady(true);
@@ -47,17 +43,11 @@ export default function BackendWarmupGate({ children }: Props) {
 
   if (ready) return <>{children}</>;
 
-  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-
   return (
     <div className="warmup-overlay" role="status" aria-live="polite">
       <div className="warmup-card">
         <div className="warmup-spinner" aria-hidden="true" />
         <h2>Odotetaan palvelun käynnistymistä…</h2>
-        <p>
-          
-        </p>
-        
       </div>
     </div>
   );
