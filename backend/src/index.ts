@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
 import { pool } from './db';
 import authRoutes from './routes/auth';
 import customerRoutes from './routes/customers';
@@ -30,6 +31,37 @@ async function runMigrations() {
     if (!error.message.includes('already exists')) {
       console.error('Migration error:', error);
     }
+  }
+}
+
+async function seedAdminUser() {
+  const email = process.env.ADMIN_EMAIL?.trim();
+  const password = process.env.ADMIN_PASSWORD;
+  const role = (process.env.ADMIN_ROLE || 'admin').trim();
+
+  if (!email || !password) return;
+  if (role !== 'admin') {
+    console.warn(`⚠️  ADMIN_ROLE is "${role}" (expected "admin"). Skipping admin seed.`);
+    return;
+  }
+
+  try {
+    const existing = await pool.query('SELECT id, email, role FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      console.log(`ℹ️  Admin seed: user already exists (${existing.rows[0].email}, role: ${existing.rows[0].role})`);
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const created = await pool.query(
+      'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role',
+      [email, passwordHash, 'admin']
+    );
+
+    console.log(`✅ Admin seed: created user ${created.rows[0].email} (role: ${created.rows[0].role})`);
+  } catch (error: any) {
+    // Don't crash the server on seed errors; log and continue.
+    console.error('❌ Admin seed error:', error?.message || error);
   }
 }
 
@@ -78,9 +110,11 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Start server
 runMigrations().then(() => {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Server accessible at http://localhost:${PORT}`);
+  seedAdminUser().finally(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Server accessible at http://localhost:${PORT}`);
+    });
   });
 });
 
