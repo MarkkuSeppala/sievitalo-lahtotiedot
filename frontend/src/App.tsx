@@ -9,6 +9,7 @@ import SubmissionView from './pages/SubmissionView';
 import SubmissionList from './pages/SubmissionList';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Header from './components/Header';
+import BackendWarmupGate from './components/BackendWarmupGate';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -115,14 +116,16 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true
-        }}
-      >
-        <AppRoutes />
-      </BrowserRouter>
+      <BackendWarmupGate>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true
+          }}
+        >
+          <AppRoutes />
+        </BrowserRouter>
+      </BackendWarmupGate>
     </AuthProvider>
   );
 }
