@@ -214,80 +214,86 @@ export default function SubmissionView() {
 
       <div className="card">
         <h2>Vastaukset</h2>
-        {parsedFields && Object.keys(parsedFields).length > 0 ? (
-          Object.entries(parsedFields).map(([key, value]: [string, any]) => {
-            // Skip empty values
-            if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
-              return null;
-            }
-            
-            // Format field name - use custom label if available, otherwise format automatically
-            const fieldName = FIELD_LABELS[key] || key
-              .replace(/_/g, ' ')
-              .replace(/\b\w/g, (l) => l.toUpperCase());
-            
-            // Format value
-            let displayValue = '';
-            if (Array.isArray(value)) {
-              displayValue = value.join(', ');
-            } else if (typeof value === 'object') {
-              displayValue = JSON.stringify(value);
-            } else {
-              displayValue = String(value);
-            }
-            
-            return (
-              <div key={key} style={{ marginBottom: '15px', paddingBottom: '10px', borderBottom: '1px solid #eee' }}>
-                <strong>{fieldName}:</strong> {displayValue}
-              </div>
-            );
-          })
-        ) : (
-          <p>Ei vastauksia.</p>
-        )}
+        {(() => {
+          const hasFormFields = parsedFields && Object.keys(parsedFields).length > 0;
+          const hasFiles = submission.files && Object.keys(submission.files).length > 0;
+          
+          if (!hasFormFields && !hasFiles) {
+            return <p>Ei vastauksia.</p>;
+          }
+          
+          return (
+            <>
+              {/* Display form field responses */}
+              {hasFormFields && Object.entries(parsedFields).map(([key, value]: [string, any]) => {
+                // Skip empty values
+                if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
+                  return null;
+                }
+                
+                // Format field name - use custom label if available, otherwise format automatically
+                const fieldName = FIELD_LABELS[key] || key
+                  .replace(/_/g, ' ')
+                  .replace(/\b\w/g, (l) => l.toUpperCase());
+                
+                // Format value
+                let displayValue = '';
+                if (Array.isArray(value)) {
+                  displayValue = value.join(', ');
+                } else if (typeof value === 'object') {
+                  displayValue = JSON.stringify(value);
+                } else {
+                  displayValue = String(value);
+                }
+                
+                return (
+                  <div key={key} style={{ marginBottom: '15px', paddingBottom: '10px', borderBottom: '1px solid #eee' }}>
+                    <strong>{fieldName}:</strong> {displayValue}
+                  </div>
+                );
+              })}
+              
+              {/* Display file upload fields */}
+              {hasFiles && Object.entries(submission.files)
+                .sort(([a], [b]) => {
+                  // Sort by predefined order if available, otherwise alphabetically
+                  const orderA = Object.keys(FILE_FIELD_LABELS).indexOf(a);
+                  const orderB = Object.keys(FILE_FIELD_LABELS).indexOf(b);
+                  if (orderA !== -1 && orderB !== -1) return orderA - orderB;
+                  if (orderA !== -1) return -1;
+                  if (orderB !== -1) return 1;
+                  return a.localeCompare(b);
+                })
+                .map(([fieldName, files]: [string, any]) => {
+                  // Get label from mapping - must match exactly with form labels
+                  const label = FILE_FIELD_LABELS[fieldName] || fieldName.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+                  if (!FILE_FIELD_LABELS[fieldName]) {
+                    console.warn(`Missing label mapping for field: ${fieldName}. Using formatted field name instead.`);
+                  }
+                  return (
+                    <div key={fieldName} style={{ marginBottom: '15px', paddingBottom: '10px', borderBottom: '1px solid #eee' }}>
+                      <strong>{label}:</strong>
+                      <ul style={{ marginTop: '5px', marginLeft: '20px', listStyleType: 'disc' }}>
+                        {files.map((file: any, idx: number) => (
+                          <li key={idx} style={{ marginBottom: '5px' }}>
+                            <a 
+                              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${file.url}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              style={{ color: '#007bff', textDecoration: 'underline' }}
+                            >
+                              {file.name}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+            </>
+          );
+        })()}
       </div>
-
-      {submission.files && Object.keys(submission.files).length > 0 && (
-        <div className="card">
-          <h2>Tiedostot</h2>
-          {Object.entries(submission.files)
-            .sort(([a], [b]) => {
-              // Sort by predefined order if available, otherwise alphabetically
-              const orderA = Object.keys(FILE_FIELD_LABELS).indexOf(a);
-              const orderB = Object.keys(FILE_FIELD_LABELS).indexOf(b);
-              if (orderA !== -1 && orderB !== -1) return orderA - orderB;
-              if (orderA !== -1) return -1;
-              if (orderB !== -1) return 1;
-              return a.localeCompare(b);
-            })
-            .map(([fieldName, files]: [string, any]) => {
-              // Get label from mapping - must match exactly with form labels
-              const label = FILE_FIELD_LABELS[fieldName] || fieldName.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
-              if (!FILE_FIELD_LABELS[fieldName]) {
-                console.warn(`Missing label mapping for field: ${fieldName}. Using formatted field name instead.`);
-              }
-              return (
-                <div key={fieldName} style={{ marginBottom: '20px' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '10px' }}>{label}</h3>
-                  <ul style={{ marginLeft: '20px', listStyleType: 'disc' }}>
-                    {files.map((file: any, idx: number) => (
-                      <li key={idx} style={{ marginBottom: '5px' }}>
-                        <a 
-                          href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${file.url}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ color: '#007bff', textDecoration: 'underline' }}
-                        >
-                          {file.name}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-        </div>
-      )}
     </div>
   );
 }

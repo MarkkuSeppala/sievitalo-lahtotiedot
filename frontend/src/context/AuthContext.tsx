@@ -30,6 +30,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const logout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    delete axios.defaults.headers.common['Authorization'];
+  };
+
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
@@ -40,6 +48,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
     }
     setLoading(false);
+
+    // Lisää axios-response-interceptor token-vanhentumisen käsittelyyn
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 403 && 
+            (error.response?.data?.error === 'Invalid or expired token' || 
+             error.message?.includes('jwt expired'))) {
+          // Token vanhentunut - kirjaa käyttäjä ulos
+          console.log('🔄 Token vanhentunut, kirjaudutaan ulos...');
+          logout();
+          // Ohjaa kirjautumissivulle jos ei jo siellä
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    // Poista interceptor komponentin purkautuessa
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -63,14 +95,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Status:', error.response?.status);
       throw error;
     }
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    delete axios.defaults.headers.common['Authorization'];
   };
 
   return (

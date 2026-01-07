@@ -143,11 +143,21 @@ export const saveSubmission = async (req: Request, res: Response) => {
         const fieldName = fieldNames[file.originalname] || req.body.fieldName || 'general';
         const fileUrl = `/uploads/${file.filename}`;
 
-        await pool.query(
-          `INSERT INTO submission_files (submission_id, field_name, file_name, file_url)
-           VALUES ($1, $2, $3, $4)`,
-          [submissionId, fieldName, file.originalname, fileUrl]
+        // Tarkista, onko sama tiedosto jo tallennettu
+        const existingFile = await pool.query(
+          `SELECT id FROM submission_files 
+           WHERE submission_id = $1 AND field_name = $2 AND file_name = $3`,
+          [submissionId, fieldName, file.originalname]
         );
+
+        // Tallenna vain jos tiedostoa ei ole jo tallennettu
+        if (existingFile.rows.length === 0) {
+          await pool.query(
+            `INSERT INTO submission_files (submission_id, field_name, file_name, file_url)
+             VALUES ($1, $2, $3, $4)`,
+            [submissionId, fieldName, file.originalname, fileUrl]
+          );
+        }
       }
     }
 
@@ -284,11 +294,21 @@ export const submitForm = async (req: Request, res: Response) => {
         const fieldName = fieldNames[file.originalname] || req.body.fieldName || 'general';
         const fileUrl = `/uploads/${file.filename}`;
 
-        await pool.query(
-          `INSERT INTO submission_files (submission_id, field_name, file_name, file_url)
-           VALUES ($1, $2, $3, $4)`,
-          [submissionId, fieldName, file.originalname, fileUrl]
+        // Tarkista, onko sama tiedosto jo tallennettu
+        const existingFile = await pool.query(
+          `SELECT id FROM submission_files 
+           WHERE submission_id = $1 AND field_name = $2 AND file_name = $3`,
+          [submissionId, fieldName, file.originalname]
         );
+
+        // Tallenna vain jos tiedostoa ei ole jo tallennettu
+        if (existingFile.rows.length === 0) {
+          await pool.query(
+            `INSERT INTO submission_files (submission_id, field_name, file_name, file_url)
+             VALUES ($1, $2, $3, $4)`,
+            [submissionId, fieldName, file.originalname, fileUrl]
+          );
+        }
       }
     }
 
