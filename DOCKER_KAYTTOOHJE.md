@@ -336,3 +336,4 @@ docker-compose restart backend
 - Jos `node_modules` eivät toimi oikein, voit poistaa volyymin: `docker volume rm lahtotiedot_backend_node_modules`
 
 
+
