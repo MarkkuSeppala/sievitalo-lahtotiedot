@@ -102,7 +102,19 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
       }
     });
     
-    await onSave(fields, allFiles.files.length > 0 ? allFiles.files : undefined, fieldNames);
+    try {
+      await onSave(fields, allFiles.files.length > 0 ? allFiles.files : undefined, fieldNames);
+      // Tyhjennä fileInputs onnistuneen tallennuksen jälkeen
+      setFileInputs({});
+      // Resetoi file inputit
+      const fileInputElements = document.querySelectorAll('input[type="file"]');
+      fileInputElements.forEach((input: any) => {
+        input.value = '';
+      });
+    } catch (error) {
+      // Jos tallennus epäonnistui, älä tyhjennä
+      throw error;
+    }
   };
 
   return (

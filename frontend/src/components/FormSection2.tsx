@@ -86,7 +86,7 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
     setFileInputs((prev) => ({ ...prev, [name]: files }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const allFiles = new DataTransfer();
     const fieldNames: Record<string, string> = {};
     
@@ -99,10 +99,22 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
       }
     });
     
-    onSave(fields, allFiles.files.length > 0 ? allFiles.files : undefined, fieldNames);
+    try {
+      await onSave(fields, allFiles.files.length > 0 ? allFiles.files : undefined, fieldNames);
+      // Tyhjennä fileInputs onnistuneen tallennuksen jälkeen
+      setFileInputs({});
+      // Resetoi file inputit
+      const fileInputElements = document.querySelectorAll('input[type="file"]');
+      fileInputElements.forEach((input: any) => {
+        input.value = '';
+      });
+    } catch (error) {
+      // Jos tallennus epäonnistui, älä tyhjennä
+      throw error;
+    }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const allFiles = new DataTransfer();
     const fieldNames: Record<string, string> = {};
     
@@ -115,7 +127,19 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
       }
     });
     
-    onSubmit(fields, allFiles.files.length > 0 ? allFiles.files : undefined, fieldNames);
+    try {
+      await onSubmit(fields, allFiles.files.length > 0 ? allFiles.files : undefined, fieldNames);
+      // Tyhjennä fileInputs onnistuneen lähetyksen jälkeen
+      setFileInputs({});
+      // Resetoi file inputit
+      const fileInputElements = document.querySelectorAll('input[type="file"]');
+      fileInputElements.forEach((input: any) => {
+        input.value = '';
+      });
+    } catch (error) {
+      // Jos lähetys epäonnistui, älä tyhjennä
+      throw error;
+    }
   };
 
   return (
