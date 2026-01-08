@@ -141,19 +141,41 @@ export const exportSubmissionPDF = async (req: AuthRequest, res: Response) => {
       [id]
     );
 
-    // Create PDF
-    const doc = new PDFDocument();
+    // Create PDF with margins
+    const margin = 50;
+    const doc = new PDFDocument({
+      margins: {
+        top: margin,
+        bottom: margin,
+        left: margin,
+        right: margin
+      }
+    });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=submission-${id}.pdf`);
 
     doc.pipe(res);
 
+    // Calculate text width (page width minus margins)
+    const textWidth = doc.page.width - (margin * 2);
+    const lineGap = 4;
+
+    // Helper function to check if we need a new page
+    const checkPageBreak = (requiredHeight: number = 20) => {
+      if (doc.y + requiredHeight > doc.page.height - margin) {
+        doc.addPage();
+      }
+    };
+
     // Header
-    doc.fontSize(20).text('Suunnittelun lähtötiedot', { align: 'center' });
+    checkPageBreak(40);
+    doc.fontSize(20).text('Suunnittelun lähtötiedot', { align: 'center', width: textWidth });
     doc.moveDown();
-    doc.fontSize(12).text(`Asiakas: ${submission.customer_name}`);
-    doc.text(`Sähköposti: ${submission.customer_email}`);
-    doc.text(`Lähetetty: ${submission.submitted_at ? new Date(submission.submitted_at).toLocaleString('fi-FI') : 'Ei lähetetty'}`);
+    checkPageBreak(60);
+    doc.fontSize(12);
+    doc.text(`Asiakas: ${submission.customer_name}`, { width: textWidth, lineGap });
+    doc.text(`Sähköposti: ${submission.customer_email}`, { width: textWidth, lineGap });
+    doc.text(`Lähetetty: ${submission.submitted_at ? new Date(submission.submitted_at).toLocaleString('fi-FI') : 'Ei lähetetty'}`, { width: textWidth, lineGap });
     doc.moveDown();
 
     // Mapping of field names to human-readable labels
@@ -171,16 +193,26 @@ export const exportSubmissionPDF = async (req: AuthRequest, res: Response) => {
     };
 
     // Fields
-    doc.fontSize(16).text('Vastaukset:', { underline: true });
+    checkPageBreak(30);
+    doc.fontSize(16).text('Vastaukset:', { underline: true, width: textWidth });
     doc.moveDown();
 
     fieldsResult.rows.forEach((row: any) => {
       // Use custom label if available, otherwise format automatically
       const fieldName = FIELD_LABELS[row.field_name] || row.field_name.replace(/_/g, ' ');
       const fieldValue = JSON.parse(row.field_value);
-      doc.fontSize(12).text(`${fieldName}:`, { continued: true });
-      doc.text(Array.isArray(fieldValue) ? fieldValue.join(', ') : String(fieldValue));
-      doc.moveDown(0.5);
+      const fieldValueText = Array.isArray(fieldValue) ? fieldValue.join(', ') : String(fieldValue);
+      
+      // Check if we need a new page before adding this field
+      checkPageBreak(30);
+      
+      // Combine label and value in one text call for proper wrapping
+      doc.fontSize(12);
+      doc.text(`${fieldName}: ${fieldValueText}`, { 
+        width: textWidth, 
+        lineGap 
+      });
+      doc.moveDown();
     });
 
     // Mapping of file field names to human-readable labels
@@ -196,14 +228,24 @@ export const exportSubmissionPDF = async (req: AuthRequest, res: Response) => {
 
     // Files
     if (filesResult.rows.length > 0) {
+      checkPageBreak(30);
       doc.moveDown();
-      doc.fontSize(16).text('Tiedostot:', { underline: true });
+      doc.fontSize(16).text('Tiedostot:', { underline: true, width: textWidth });
       doc.moveDown();
 
       filesResult.rows.forEach((row: any) => {
         // Use custom label if available, otherwise format automatically
         const fieldName = FILE_FIELD_LABELS[row.field_name] || row.field_name.replace(/_/g, ' ');
-        doc.fontSize(12).text(`${fieldName}: ${row.file_name}`);
+        
+        // Check if we need a new page before adding this file entry
+        checkPageBreak(20);
+        
+        doc.fontSize(12);
+        doc.text(`${fieldName}: ${row.file_name}`, { 
+          width: textWidth, 
+          lineGap 
+        });
+        doc.moveDown();
       });
     }
 
