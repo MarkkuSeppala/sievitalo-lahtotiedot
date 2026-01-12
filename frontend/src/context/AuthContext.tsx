@@ -39,15 +39,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    const verifyToken = async () => {
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
 
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-    }
-    setLoading(false);
+      if (storedToken && storedUser) {
+        // Set token in axios headers for the verification request
+        axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        
+        try {
+          // Verify token with backend
+          const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/verify`);
+          const { user: verifiedUser } = response.data;
+          
+          // Token is valid, set user and token
+          setToken(storedToken);
+          setUser(verifiedUser);
+          // Update localStorage with verified user data
+          localStorage.setItem('user', JSON.stringify(verifiedUser));
+        } catch (error: any) {
+          // Token is invalid or expired
+          console.log('🔄 Token validation failed:', error.response?.data?.error || error.message);
+          logout();
+          // Redirect to login if not already there
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
+        }
+      }
+      setLoading(false);
+    };
+
+    verifyToken();
 
     // Lisää axios-response-interceptor token-vanhentumisen käsittelyyn
     const interceptor = axios.interceptors.response.use(
