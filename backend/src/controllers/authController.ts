@@ -65,6 +65,27 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
+export const verifyToken = async (req: AuthRequest, res: Response) => {
+  try {
+    // authenticateToken middleware already validated the token and set req.user
+    if (!req.user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Return user information
+    res.json({
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role
+      }
+    });
+  } catch (error) {
+    console.error('Token verification error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export const register = async (req: AuthRequest, res: Response) => {
   try {
     // Only admin can create new users
