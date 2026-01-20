@@ -38,14 +38,14 @@ export async function uploadToS3(
     return `${process.env.AWS_S3_PUBLIC_URL}/${key}`;
   }
   
-  // Generate presigned URL (valid for 1 year by default)
+  // Generate presigned URL (valid for 7 days - AWS S3 maximum)
   const presignedUrl = await getSignedUrl(
     s3Client,
     new GetObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,
     }),
-    { expiresIn: 31536000 } // 1 year
+    { expiresIn: 604800 } // 7 days (AWS S3 maximum for presigned URLs)
   );
   
   return presignedUrl;
@@ -156,15 +156,24 @@ export async function downloadFromS3(urlOrKey: string): Promise<Buffer> {
       Key: urlOrKey,
     });
 
-    const response = await s3Client.send(command);
-    
-    const chunks: Uint8Array[] = [];
-    if (response.Body) {
-      for await (const chunk of response.Body as any) {
-        chunks.push(chunk);
+    try {
+      const response = await s3Client.send(command);
+      
+      const chunks: Uint8Array[] = [];
+      if (response.Body) {
+        for await (const chunk of response.Body as any) {
+          chunks.push(chunk);
+        }
       }
+      
+      return Buffer.concat(chunks);
+    } catch (error: any) {
+      // If error mentions ListBucket, it's likely a permissions issue
+      // or the file doesn't exist. Re-throw with clearer message.
+      if (error?.message?.includes('ListBucket')) {
+        throw new Error(`File not found in S3 (key: ${urlOrKey}). ListBucket permission error may indicate missing file or insufficient permissions.`);
+      }
+      throw error;
     }
-    
-    return Buffer.concat(chunks);
   }
 }
