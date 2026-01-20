@@ -431,37 +431,81 @@ export const exportSubmissionZip = async (req: AuthRequest, res: Response) => {
     // Pipe archive to response
     archive.pipe(res);
 
+    // Handle archive events
+    archive.on('error', (err) => {
+      console.error('[ZIP] Archive error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to create zip archive' });
+      }
+    });
+
     // Process each file
+    let filesProcessed = 0;
+    let filesSkipped = 0;
+
     for (const file of filesResult.rows) {
       let fileBuffer: Buffer;
       let fileName = file.file_name;
 
       // Determine file path/URL
       const fileUrl = file.file_url;
+      console.log(`[ZIP] Processing file: ${fileName}, URL: ${fileUrl.substring(0, 100)}...`);
 
       if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
         // S3 file - download from S3
         try {
           fileBuffer = await downloadFromS3(fileUrl);
-        } catch (error) {
-          console.error(`Error downloading file ${fileUrl} from S3:`, error);
+          console.log(`[ZIP] Successfully downloaded ${fileName}, size: ${fileBuffer.length} bytes`);
+          filesProcessed++;
+        } catch (error: any) {
+          console.error(`[ZIP] Error downloading file ${fileName} from S3:`, error?.message || error);
+          filesSkipped++;
           continue; // Skip this file if download fails
         }
       } else if (fileUrl.startsWith('/uploads/')) {
-        // Local filesystem file
+        // Local filesystem file (legacy format)
         const filePath = path.join(uploadDir, path.basename(fileUrl));
+        let fileFound = false;
+        
         try {
-          if (!fs.existsSync(filePath)) {
-            console.error(`File not found: ${filePath}`);
-            continue; // Skip this file if it doesn't exist
+          if (fs.existsSync(filePath)) {
+            // File exists locally - read it
+            fileBuffer = fs.readFileSync(filePath);
+            console.log(`[ZIP] Successfully read ${fileName} from filesystem, size: ${fileBuffer.length} bytes`);
+            filesProcessed++;
+            fileFound = true;
+          } else {
+            // File not found locally - try S3 if enabled
+            console.log(`[ZIP] File not found locally: ${filePath}, attempting S3 download...`);
+            
+            if (USE_S3) {
+              // Extract filename from URL (e.g., "884cd833-5602-40f4-a461-ab4fd2ecbc19.pdf")
+              const s3Key = path.basename(fileUrl);
+              try {
+                fileBuffer = await downloadFromS3(s3Key);
+                console.log(`[ZIP] Successfully downloaded ${fileName} from S3 (legacy URL), size: ${fileBuffer.length} bytes`);
+                filesProcessed++;
+                fileFound = true;
+              } catch (s3Error: any) {
+                console.error(`[ZIP] File not found in S3 either (key: ${s3Key}), skipping:`, s3Error?.message || s3Error);
+                filesSkipped++;
+                continue; // Skip this file
+              }
+            } else {
+              // S3 not enabled, skip file
+              console.error(`[ZIP] File not found: ${filePath} and S3 not enabled`);
+              filesSkipped++;
+              continue; // Skip this file
+            }
           }
-          fileBuffer = fs.readFileSync(filePath);
-        } catch (error) {
-          console.error(`Error reading file ${filePath}:`, error);
+        } catch (error: any) {
+          console.error(`[ZIP] Error reading file ${filePath}:`, error?.message || error);
+          filesSkipped++;
           continue; // Skip this file if read fails
         }
       } else {
-        console.error(`Unknown file URL format: ${fileUrl}`);
+        console.error(`[ZIP] Unknown file URL format: ${fileUrl}`);
+        filesSkipped++;
         continue; // Skip this file
       }
 
@@ -479,7 +523,10 @@ export const exportSubmissionZip = async (req: AuthRequest, res: Response) => {
 
       // Add file to zip archive
       archive.append(fileBuffer, { name: zipEntryName });
+      console.log(`[ZIP] Added ${zipEntryName} to archive`);
     }
+
+    console.log(`[ZIP] Export complete: ${filesProcessed} files processed, ${filesSkipped} files skipped`);
 
     // Finalize the archive
     await archive.finalize();
