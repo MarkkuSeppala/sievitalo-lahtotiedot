@@ -6,15 +6,20 @@ import PDFDocument from 'pdfkit';
 export const getSubmissions = async (req: AuthRequest, res: Response) => {
   try {
     let query = `
-      SELECT s.id, s.status, s.submitted_at, s.created_at,
+      SELECT s.id, s.status, s.submitted_at, s.created_at, s.version, s.parent_submission_id,
              c.name as customer_name, c.email as customer_email, c.token
       FROM submissions s
       JOIN customers c ON s.customer_id = c.id
     `;
     const params: any[] = [];
 
+    // Designers/admins should only see actual submitted deliveries, not drafts.
+    // Edustaja should also see submitted only to avoid draft spam (a draft is always created after submit).
+    query += ' WHERE s.status = $1';
+    params.push('submitted');
+
     if (req.user?.role === 'edustaja') {
-      query += ' WHERE c.edustaja_id = $1';
+      query += ' AND c.edustaja_id = $2';
       params.push(req.user.id);
     }
 
@@ -24,6 +29,119 @@ export const getSubmissions = async (req: AuthRequest, res: Response) => {
     res.json({ submissions: result.rows });
   } catch (error) {
     console.error('Get submissions error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getSubmissionChanges = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Get submission + customer
+    const submissionResult = await pool.query(
+      `SELECT s.*, c.name as customer_name, c.email as customer_email, c.token, c.edustaja_id
+       FROM submissions s
+       JOIN customers c ON s.customer_id = c.id
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (submissionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+
+    const submission = submissionResult.rows[0];
+
+    // Check permissions
+    if (req.user?.role === 'edustaja') {
+      if (submission.edustaja_id !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+
+    const parentId: number | null = submission.parent_submission_id || null;
+    if (!parentId) {
+      return res.json({
+        isFirstSubmission: true,
+        parentSubmissionId: null,
+        fieldsChanged: [],
+        filesAdded: [],
+        filesRemoved: []
+      });
+    }
+
+    const stableStringify = (value: any): string => {
+      if (value === null || value === undefined) return String(value);
+      if (typeof value !== 'object') return JSON.stringify(value);
+      if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+      const keys = Object.keys(value).sort();
+      return `{${keys.map((k) => JSON.stringify(k) + ':' + stableStringify(value[k])).join(',')}}`;
+    };
+
+    const parseFieldValue = (raw: any) => {
+      if (raw === null || raw === undefined) return raw;
+      if (typeof raw === 'string') {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return raw;
+        }
+      }
+      return raw;
+    };
+
+    // Fields maps
+    const [curFieldsRes, prevFieldsRes] = await Promise.all([
+      pool.query('SELECT field_name, field_value FROM submission_fields WHERE submission_id = $1', [id]),
+      pool.query('SELECT field_name, field_value FROM submission_fields WHERE submission_id = $1', [parentId])
+    ]);
+
+    const curFields = new Map<string, any>();
+    for (const row of curFieldsRes.rows) {
+      curFields.set(row.field_name, parseFieldValue(row.field_value));
+    }
+    const prevFields = new Map<string, any>();
+    for (const row of prevFieldsRes.rows) {
+      prevFields.set(row.field_name, parseFieldValue(row.field_value));
+    }
+
+    const allFieldNames = new Set<string>([...curFields.keys(), ...prevFields.keys()]);
+    const fieldsChanged: Array<{ field: string; oldValue: any; newValue: any }> = [];
+    for (const field of Array.from(allFieldNames).sort()) {
+      const oldValue = prevFields.get(field);
+      const newValue = curFields.get(field);
+      if (stableStringify(oldValue) !== stableStringify(newValue)) {
+        fieldsChanged.push({ field, oldValue, newValue });
+      }
+    }
+
+    // Files diff (by field_name + file_name + file_url)
+    const [curFilesRes, prevFilesRes] = await Promise.all([
+      pool.query('SELECT field_name, file_name, file_url FROM submission_files WHERE submission_id = $1', [id]),
+      pool.query('SELECT field_name, file_name, file_url FROM submission_files WHERE submission_id = $1', [parentId])
+    ]);
+
+    const keyOf = (r: any) => `${r.field_name}::${r.file_name}::${r.file_url}`;
+    const curKeys = new Set(curFilesRes.rows.map(keyOf));
+    const prevKeys = new Set(prevFilesRes.rows.map(keyOf));
+
+    const filesAdded = curFilesRes.rows
+      .filter((r: any) => !prevKeys.has(keyOf(r)))
+      .map((r: any) => ({ fieldName: r.field_name, fileName: r.file_name, url: r.file_url }));
+
+    const filesRemoved = prevFilesRes.rows
+      .filter((r: any) => !curKeys.has(keyOf(r)))
+      .map((r: any) => ({ fieldName: r.field_name, fileName: r.file_name, url: r.file_url }));
+
+    res.json({
+      isFirstSubmission: false,
+      parentSubmissionId: parentId,
+      fieldsChanged,
+      filesAdded,
+      filesRemoved
+    });
+  } catch (error) {
+    console.error('Get submission changes error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

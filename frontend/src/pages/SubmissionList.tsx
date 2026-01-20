@@ -7,6 +7,7 @@ interface Submission {
   status: string;
   submitted_at: string | null;
   created_at: string;
+  version?: number | null;
   customer_name: string;
   customer_email: string;
   token: string;
@@ -73,6 +74,7 @@ export default function SubmissionList() {
             <thead>
               <tr style={{ borderBottom: '2px solid #ddd' }}>
                 <th style={{ padding: '10px', textAlign: 'left' }}>Asiakas</th>
+                <th style={{ padding: '10px', textAlign: 'left' }}>Versio</th>
                 <th style={{ padding: '10px', textAlign: 'left' }}>Status</th>
                 <th style={{ padding: '10px', textAlign: 'left' }}>Lähetetty</th>
                 <th style={{ padding: '10px', textAlign: 'left' }}>Toiminnot</th>
@@ -87,6 +89,9 @@ export default function SubmissionList() {
                       <br />
                       <small>{submission.customer_email}</small>
                     </div>
+                  </td>
+                  <td style={{ padding: '10px' }}>
+                    {submission.version ? `#${submission.version}` : '-'}
                   </td>
                   <td style={{ padding: '10px' }}>
                     <span

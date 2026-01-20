@@ -25,7 +25,7 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
     ...data?.fields
   });
 
-  const [fileInputs, setFileInputs] = useState<Record<string, FileList | null>>({});
+  const [fileInputs, setFileInputs] = useState<Record<string, File[]>>({});
 
   useEffect(() => {
     if (data?.fields) {
@@ -83,7 +83,68 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
   };
 
   const handleFileChange = (name: string, files: FileList | null) => {
-    setFileInputs((prev) => ({ ...prev, [name]: files }));
+    if (!files || files.length === 0) return;
+    const incoming = Array.from(files);
+    setFileInputs((prev) => {
+      const existing = prev[name] || [];
+      const seen = new Set(existing.map((f) => `${f.name}::${f.size}::${f.lastModified}`));
+      const merged = [...existing];
+      for (const f of incoming) {
+        const key = `${f.name}::${f.size}::${f.lastModified}`;
+        if (!seen.has(key)) {
+          merged.push(f);
+          seen.add(key);
+        }
+      }
+      return { ...prev, [name]: merged };
+    });
+  };
+
+  const removePendingFile = (fieldName: string, index: number) => {
+    setFileInputs((prev) => {
+      const existing = prev[fieldName] || [];
+      const next = existing.filter((_, i) => i !== index);
+      const updated = { ...prev };
+      if (next.length === 0) {
+        delete updated[fieldName];
+      } else {
+        updated[fieldName] = next;
+      }
+      return updated;
+    });
+  };
+
+  const PendingFilesList = ({ fieldName }: { fieldName: string }) => {
+    const files = fileInputs[fieldName] || [];
+    if (files.length === 0) return null;
+    return (
+      <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+        <strong>Valitut (ei vielä tallennettu):</strong>
+        <ul style={{ marginTop: '4px', marginLeft: '20px', listStyleType: 'disc' }}>
+          {files.map((file, idx) => (
+            <li key={`${file.name}-${file.size}-${file.lastModified}-${idx}`} style={{ marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>{file.name}</span>
+              <button
+                type="button"
+                onClick={() => removePendingFile(fieldName, idx)}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '2px 8px',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+                title="Poista valinta"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   };
 
   const handleSave = async () => {
@@ -91,12 +152,10 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
     const fieldNames: Record<string, string> = {};
     
     Object.entries(fileInputs).forEach(([fieldName, fileList]) => {
-      if (fileList) {
-        Array.from(fileList).forEach((file) => {
-          allFiles.items.add(file);
-          fieldNames[file.name] = fieldName;
-        });
-      }
+      fileList.forEach((file) => {
+        allFiles.items.add(file);
+        fieldNames[file.name] = fieldName;
+      });
     });
     
     try {
@@ -119,12 +178,10 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
     const fieldNames: Record<string, string> = {};
     
     Object.entries(fileInputs).forEach(([fieldName, fileList]) => {
-      if (fileList) {
-        Array.from(fileList).forEach((file) => {
-          allFiles.items.add(file);
-          fieldNames[file.name] = fieldName;
-        });
-      }
+      fileList.forEach((file) => {
+        allFiles.items.add(file);
+        fieldNames[file.name] = fieldName;
+      });
     });
     
     try {
@@ -699,6 +756,7 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
           multiple
           onChange={(e) => handleFileChange('sahko_sijoitusluonnos', e.target.files)}
         />
+        <PendingFilesList fieldName="sahko_sijoitusluonnos" />
         <SavedFilesList fieldName="sahko_sijoitusluonnos" />
       </div>
 

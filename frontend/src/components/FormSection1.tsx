@@ -20,7 +20,7 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
     ...data?.fields
   });
 
-  const [fileInputs, setFileInputs] = useState<Record<string, FileList | null>>({});
+  const [fileInputs, setFileInputs] = useState<Record<string, File[]>>({});
 
   useEffect(() => {
     if (data?.fields) {
@@ -86,7 +86,69 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
   };
 
   const handleFileChange = (name: string, files: FileList | null) => {
-    setFileInputs((prev) => ({ ...prev, [name]: files }));
+    if (!files || files.length === 0) return;
+    const incoming = Array.from(files);
+    setFileInputs((prev) => {
+      const existing = prev[name] || [];
+      // De-dupe by name+size+lastModified to avoid accidental double adds
+      const seen = new Set(existing.map((f) => `${f.name}::${f.size}::${f.lastModified}`));
+      const merged = [...existing];
+      for (const f of incoming) {
+        const key = `${f.name}::${f.size}::${f.lastModified}`;
+        if (!seen.has(key)) {
+          merged.push(f);
+          seen.add(key);
+        }
+      }
+      return { ...prev, [name]: merged };
+    });
+  };
+
+  const removePendingFile = (fieldName: string, index: number) => {
+    setFileInputs((prev) => {
+      const existing = prev[fieldName] || [];
+      const next = existing.filter((_, i) => i !== index);
+      const updated = { ...prev };
+      if (next.length === 0) {
+        delete updated[fieldName];
+      } else {
+        updated[fieldName] = next;
+      }
+      return updated;
+    });
+  };
+
+  const PendingFilesList = ({ fieldName }: { fieldName: string }) => {
+    const files = fileInputs[fieldName] || [];
+    if (files.length === 0) return null;
+    return (
+      <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+        <strong>Valitut (ei vielä tallennettu):</strong>
+        <ul style={{ marginTop: '4px', marginLeft: '20px', listStyleType: 'disc' }}>
+          {files.map((file, idx) => (
+            <li key={`${file.name}-${file.size}-${file.lastModified}-${idx}`} style={{ marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>{file.name}</span>
+              <button
+                type="button"
+                onClick={() => removePendingFile(fieldName, idx)}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '2px 8px',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+                title="Poista valinta"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   };
 
   const handleSave = async () => {
@@ -94,12 +156,10 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
     const fieldNames: Record<string, string> = {};
     
     Object.entries(fileInputs).forEach(([fieldName, fileList]) => {
-      if (fileList) {
-        Array.from(fileList).forEach((file) => {
-          allFiles.items.add(file);
-          fieldNames[file.name] = fieldName;
-        });
-      }
+      fileList.forEach((file) => {
+        allFiles.items.add(file);
+        fieldNames[file.name] = fieldName;
+      });
     });
     
     try {
@@ -186,6 +246,7 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
           multiple
           onChange={(e) => handleFileChange('kaavaote', e.target.files)}
         />
+        <PendingFilesList fieldName="kaavaote" />
         <SavedFilesList fieldName="kaavaote" />
       </div>
 
@@ -196,6 +257,7 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
           multiple
           onChange={(e) => handleFileChange('tonttikartta', e.target.files)}
         />
+        <PendingFilesList fieldName="tonttikartta" />
         <SavedFilesList fieldName="tonttikartta" />
       </div>
 
@@ -234,6 +296,7 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
           multiple
           onChange={(e) => handleFileChange('vesi_viemari_lausunto', e.target.files)}
         />
+        <PendingFilesList fieldName="vesi_viemari_lausunto" />
         <SavedFilesList fieldName="vesi_viemari_lausunto" />
       </div>
 
@@ -274,6 +337,7 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
           multiple
           onChange={(e) => handleFileChange('sijoitusluonnos', e.target.files)}
         />
+        <PendingFilesList fieldName="sijoitusluonnos" />
         <SavedFilesList fieldName="sijoitusluonnos" />
       </div>
 
@@ -298,6 +362,7 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
           multiple
           onChange={(e) => handleFileChange('pohjatutkimus', e.target.files)}
         />
+        <PendingFilesList fieldName="pohjatutkimus" />
         <SavedFilesList fieldName="pohjatutkimus" />
       </div>
 

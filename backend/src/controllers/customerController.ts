@@ -40,8 +40,8 @@ export const getCustomers = async (req: AuthRequest, res: Response) => {
   try {
     let query = `
       SELECT c.id, c.name, c.email, c.token, c.created_at,
-             COUNT(s.id) as submission_count,
-             MAX(s.submitted_at) as last_submission
+             COUNT(s.id) FILTER (WHERE s.status = 'submitted') as submission_count,
+             MAX(s.submitted_at) FILTER (WHERE s.status = 'submitted') as last_submission
       FROM customers c
       LEFT JOIN submissions s ON c.id = s.customer_id
     `;
@@ -95,8 +95,8 @@ export const getCustomerSubmissions = async (req: AuthRequest, res: Response) =>
       `SELECT s.*, c.name as customer_name, c.email as customer_email
        FROM submissions s
        JOIN customers c ON s.customer_id = c.id
-       WHERE c.token = $1
-       ORDER BY s.submitted_at DESC NULLS LAST, s.created_at DESC`,
+       WHERE c.token = $1 AND s.status = 'submitted'
+       ORDER BY s.version DESC NULLS LAST, s.submitted_at DESC NULLS LAST, s.created_at DESC`,
       [token]
     );
 

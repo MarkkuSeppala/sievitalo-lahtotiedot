@@ -20,22 +20,57 @@ export const getSubmissionByToken = async (req: Request, res: Response) => {
 
     const customer = customerResult.rows[0];
 
-    // Get or create submission
-    let submissionResult = await pool.query(
-      'SELECT id, status, submitted_at FROM submissions WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 1',
+    const cloneSubmissionData = async (fromSubmissionId: number, toSubmissionId: number) => {
+      // Clone fields
+      await pool.query(
+        `INSERT INTO submission_fields (submission_id, field_name, field_value)
+         SELECT $2, field_name, field_value
+         FROM submission_fields
+         WHERE submission_id = $1`,
+        [fromSubmissionId, toSubmissionId]
+      );
+
+      // Clone files (keep same file_url so history stays consistent)
+      await pool.query(
+        `INSERT INTO submission_files (submission_id, field_name, file_name, file_url, uploaded_at)
+         SELECT $2, field_name, file_name, file_url, uploaded_at
+         FROM submission_files
+         WHERE submission_id = $1`,
+        [fromSubmissionId, toSubmissionId]
+      );
+    };
+
+    // Get or create the current draft submission for the customer.
+    // If no draft exists, create one based on the latest submitted version (if any).
+    let draftResult = await pool.query(
+      `SELECT id FROM submissions
+       WHERE customer_id = $1 AND status = 'draft'
+       ORDER BY created_at DESC
+       LIMIT 1`,
       [customer.id]
     );
 
     let submissionId: number;
-    if (submissionResult.rows.length === 0) {
-      // Create new submission
-      const newSubmission = await pool.query(
+    if (draftResult.rows.length > 0) {
+      submissionId = draftResult.rows[0].id;
+    } else {
+      const latestSubmittedResult = await pool.query(
+        `SELECT id FROM submissions
+         WHERE customer_id = $1 AND status = 'submitted'
+         ORDER BY version DESC NULLS LAST, submitted_at DESC NULLS LAST, created_at DESC
+         LIMIT 1`,
+        [customer.id]
+      );
+
+      const newDraft = await pool.query(
         'INSERT INTO submissions (customer_id, status, created_at) VALUES ($1, $2, NOW()) RETURNING id',
         [customer.id, 'draft']
       );
-      submissionId = newSubmission.rows[0].id;
-    } else {
-      submissionId = submissionResult.rows[0].id;
+      submissionId = newDraft.rows[0].id;
+
+      if (latestSubmittedResult.rows.length > 0) {
+        await cloneSubmissionData(latestSubmittedResult.rows[0].id, submissionId);
+      }
     }
 
     // Get all field values
@@ -104,21 +139,24 @@ export const saveSubmission = async (req: Request, res: Response) => {
 
     const customerId = customerResult.rows[0].id;
 
-    // Get or create submission
-    let submissionResult = await pool.query(
-      'SELECT id FROM submissions WHERE customer_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
-      [customerId, 'draft']
+    // Get or create draft submission
+    const submissionResult = await pool.query(
+      `SELECT id FROM submissions
+       WHERE customer_id = $1 AND status = 'draft'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [customerId]
     );
 
     let submissionId: number;
-    if (submissionResult.rows.length === 0) {
+    if (submissionResult.rows.length > 0) {
+      submissionId = submissionResult.rows[0].id;
+    } else {
       const newSubmission = await pool.query(
         'INSERT INTO submissions (customer_id, status, created_at) VALUES ($1, $2, NOW()) RETURNING id',
         [customerId, 'draft']
       );
       submissionId = newSubmission.rows[0].id;
-    } else {
-      submissionId = submissionResult.rows[0].id;
     }
 
     // Save fields
@@ -184,9 +222,12 @@ export const deleteFile = async (req: Request, res: Response) => {
 
     const customerId = customerResult.rows[0].id;
 
-    // Get submission
+    // Only allow deleting from the current draft (submitted versions must remain intact).
     const submissionResult = await pool.query(
-      'SELECT id FROM submissions WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 1',
+      `SELECT id FROM submissions
+       WHERE customer_id = $1 AND status = 'draft'
+       ORDER BY created_at DESC
+       LIMIT 1`,
       [customerId]
     );
 
@@ -208,15 +249,8 @@ export const deleteFile = async (req: Request, res: Response) => {
 
     const fileUrl = fileResult.rows[0].file_url;
     
-    // Delete file from filesystem
-    const uploadDir = process.env.UPLOAD_DIR || './uploads';
-    const filePath = path.join(uploadDir, path.basename(fileUrl));
-    
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    // Delete file from database
+    // Delete file reference from database only (do NOT delete the underlying file).
+    // The same file_url can be referenced by older submitted versions.
     await pool.query(
       'DELETE FROM submission_files WHERE id = $1 AND submission_id = $2',
       [fileId, submissionId]
@@ -251,25 +285,41 @@ export const submitForm = async (req: Request, res: Response) => {
     const customer = customerResult.rows[0];
     const customerId = customer.id;
 
-    // Get or create submission
-    let submissionResult = await pool.query(
-      'SELECT id FROM submissions WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 1',
+    const cloneSubmissionData = async (fromSubmissionId: number, toSubmissionId: number) => {
+      await pool.query(
+        `INSERT INTO submission_fields (submission_id, field_name, field_value)
+         SELECT $2, field_name, field_value
+         FROM submission_fields
+         WHERE submission_id = $1`,
+        [fromSubmissionId, toSubmissionId]
+      );
+      await pool.query(
+        `INSERT INTO submission_files (submission_id, field_name, file_name, file_url, uploaded_at)
+         SELECT $2, field_name, file_name, file_url, uploaded_at
+         FROM submission_files
+         WHERE submission_id = $1`,
+        [fromSubmissionId, toSubmissionId]
+      );
+    };
+
+    // Get or create draft submission (this is what the customer edits).
+    const draftResult = await pool.query(
+      `SELECT id FROM submissions
+       WHERE customer_id = $1 AND status = 'draft'
+       ORDER BY created_at DESC
+       LIMIT 1`,
       [customerId]
     );
 
     let submissionId: number;
-    if (submissionResult.rows.length === 0) {
-      const newSubmission = await pool.query(
-        'INSERT INTO submissions (customer_id, status, created_at) VALUES ($1, $2, NOW()) RETURNING id',
-        [customerId, 'submitted']
-      );
-      submissionId = newSubmission.rows[0].id;
+    if (draftResult.rows.length > 0) {
+      submissionId = draftResult.rows[0].id;
     } else {
-      submissionId = submissionResult.rows[0].id;
-      await pool.query(
-        'UPDATE submissions SET status = $1, submitted_at = NOW() WHERE id = $2',
-        ['submitted', submissionId]
+      const newDraft = await pool.query(
+        'INSERT INTO submissions (customer_id, status, created_at) VALUES ($1, $2, NOW()) RETURNING id',
+        [customerId, 'draft']
       );
+      submissionId = newDraft.rows[0].id;
     }
 
     // Save fields
@@ -311,6 +361,43 @@ export const submitForm = async (req: Request, res: Response) => {
         }
       }
     }
+
+    // Determine version + parent submission for history
+    const parentSubmittedResult = await pool.query(
+      `SELECT id, version FROM submissions
+       WHERE customer_id = $1 AND status = 'submitted'
+       ORDER BY version DESC NULLS LAST, submitted_at DESC NULLS LAST, created_at DESC
+       LIMIT 1`,
+      [customerId]
+    );
+    const parentSubmissionId: number | null = parentSubmittedResult.rows.length > 0 ? parentSubmittedResult.rows[0].id : null;
+
+    const nextVersionResult = await pool.query(
+      `SELECT COALESCE(MAX(version), 0) + 1 AS next_version
+       FROM submissions
+       WHERE customer_id = $1 AND status = 'submitted'`,
+      [customerId]
+    );
+    const nextVersion: number = Number(nextVersionResult.rows[0].next_version);
+
+    // Mark the draft as submitted (this becomes the immutable version)
+    await pool.query(
+      `UPDATE submissions
+       SET status = 'submitted',
+           submitted_at = NOW(),
+           version = $1,
+           parent_submission_id = $2
+       WHERE id = $3`,
+      [nextVersion, parentSubmissionId, submissionId]
+    );
+
+    // Create a new draft cloned from the newly submitted version (so customer can later add more)
+    const newDraftRes = await pool.query(
+      'INSERT INTO submissions (customer_id, status, created_at) VALUES ($1, $2, NOW()) RETURNING id',
+      [customerId, 'draft']
+    );
+    const newDraftId: number = newDraftRes.rows[0].id;
+    await cloneSubmissionData(submissionId, newDraftId);
 
     // Send email to representative
     if (customer.edustaja_email) {

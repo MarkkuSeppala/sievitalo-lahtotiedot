@@ -33,6 +33,8 @@ export default function SubmissionView() {
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [parsedFields, setParsedFields] = useState<Record<string, any> | null>(null);
+  const [changes, setChanges] = useState<any>(null);
+  const [changesLoading, setChangesLoading] = useState(false);
 
   useEffect(() => {
     const customerToken = searchParams.get('customer');
@@ -104,6 +106,20 @@ export default function SubmissionView() {
       console.log('Setting parsedFields:', parsedFieldsData);
       setParsedFields(parsedFieldsData);
       setSubmission(submission);
+
+      // Fetch changes vs previous version (if any)
+      setChangesLoading(true);
+      try {
+        const changesRes = await axios.get(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/submissions/${submissionId}/changes`
+        );
+        setChanges(changesRes.data);
+      } catch (e) {
+        console.error('Error fetching submission changes:', e);
+        setChanges(null);
+      } finally {
+        setChangesLoading(false);
+      }
     } catch (error) {
       console.error('Error fetching submission:', error);
     } finally {
@@ -209,6 +225,84 @@ export default function SubmissionView() {
         <p><strong>Status:</strong> {submission.status}</p>
         {submission.submitted_at && (
           <p><strong>Lähetetty:</strong> {new Date(submission.submitted_at).toLocaleString('fi-FI')}</p>
+        )}
+      </div>
+
+      <div className="card">
+        <h2>Mikä muuttui edelliseen?</h2>
+        {changesLoading ? (
+          <p>Ladataan muutoksia...</p>
+        ) : !changes ? (
+          <p>Muutostietoja ei saatavilla.</p>
+        ) : changes.isFirstSubmission ? (
+          <p>Tämä on asiakkaan ensimmäinen lähetys.</p>
+        ) : (changes.fieldsChanged?.length || changes.filesAdded?.length || changes.filesRemoved?.length) ? (
+          <>
+            {changes.fieldsChanged?.length > 0 && (
+              <>
+                <h3>Muuttuneet vastaukset</h3>
+                {changes.fieldsChanged.map((c: any, idx: number) => {
+                  const label = FIELD_LABELS[c.field] || c.field.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+                  const oldText = Array.isArray(c.oldValue) ? c.oldValue.join(', ') : (typeof c.oldValue === 'object' ? JSON.stringify(c.oldValue) : String(c.oldValue));
+                  const newText = Array.isArray(c.newValue) ? c.newValue.join(', ') : (typeof c.newValue === 'object' ? JSON.stringify(c.newValue) : String(c.newValue));
+                  return (
+                    <div key={idx} style={{ marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid #eee' }}>
+                      <strong>{label}:</strong>
+                      <div><small>Ennen:</small> {oldText}</div>
+                      <div><small>Nyt:</small> {newText}</div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
+            {(changes.filesAdded?.length > 0 || changes.filesRemoved?.length > 0) && (
+              <>
+                <h3>Liitteet</h3>
+                {changes.filesAdded?.length > 0 && (
+                  <>
+                    <strong>Lisätyt</strong>
+                    <ul style={{ marginTop: '5px', marginLeft: '20px', listStyleType: 'disc' }}>
+                      {changes.filesAdded.map((f: any, idx: number) => {
+                        const label = FILE_FIELD_LABELS[f.fieldName] || f.fieldName;
+                        return (
+                          <li key={`a-${idx}`} style={{ marginBottom: '5px' }}>
+                            {label}:&nbsp;
+                            <a
+                              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${f.url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: '#007bff', textDecoration: 'underline' }}
+                            >
+                              {f.fileName}
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
+
+                {changes.filesRemoved?.length > 0 && (
+                  <>
+                    <strong>Poistetut</strong>
+                    <ul style={{ marginTop: '5px', marginLeft: '20px', listStyleType: 'disc' }}>
+                      {changes.filesRemoved.map((f: any, idx: number) => {
+                        const label = FILE_FIELD_LABELS[f.fieldName] || f.fieldName;
+                        return (
+                          <li key={`r-${idx}`} style={{ marginBottom: '5px' }}>
+                            {label}: {f.fileName}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <p>Ei muutoksia edelliseen lähetykseen verrattuna.</p>
         )}
       </div>
 
