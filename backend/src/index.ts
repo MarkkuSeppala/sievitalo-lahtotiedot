@@ -94,6 +94,11 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// Root endpoint for Render / load balancer probes
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'lahtotiedot-backend' });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);
