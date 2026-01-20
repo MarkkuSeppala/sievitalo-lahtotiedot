@@ -3,6 +3,8 @@ import { pool } from '../db';
 import path from 'path';
 import fs from 'fs';
 import { sendFormSubmissionEmail } from '../services/emailService';
+import { uploadToS3, deleteFromS3 } from '../services/s3Service';
+import { v4 as uuidv4 } from 'uuid';
 
 export const getSubmissionByToken = async (req: Request, res: Response) => {
   try {
@@ -175,11 +177,23 @@ export const saveSubmission = async (req: Request, res: Response) => {
     if (files && files.length > 0) {
       // Parse field names from request
       const fieldNames = req.body.fieldNames ? JSON.parse(req.body.fieldNames) : {};
+      const USE_S3 = !!process.env.AWS_S3_BUCKET_NAME;
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const fieldName = fieldNames[file.originalname] || req.body.fieldName || 'general';
-        const fileUrl = `/uploads/${file.filename}`;
+        
+        let fileUrl: string;
+        
+        if (USE_S3) {
+          // Upload to S3
+          const fileKey = `${uuidv4()}${path.extname(file.originalname)}`;
+          const fileBuffer = file.buffer;
+          fileUrl = await uploadToS3(fileKey, fileBuffer, file.mimetype);
+        } else {
+          // Local filesystem (fallback for development)
+          fileUrl = `/uploads/${file.filename}`;
+        }
 
         // Tarkista, onko sama tiedosto jo tallennettu
         const existingFile = await pool.query(
@@ -338,11 +352,23 @@ export const submitForm = async (req: Request, res: Response) => {
     if (files && files.length > 0) {
       // Parse field names from request
       const fieldNames = req.body.fieldNames ? JSON.parse(req.body.fieldNames) : {};
+      const USE_S3 = !!process.env.AWS_S3_BUCKET_NAME;
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const fieldName = fieldNames[file.originalname] || req.body.fieldName || 'general';
-        const fileUrl = `/uploads/${file.filename}`;
+        
+        let fileUrl: string;
+        
+        if (USE_S3) {
+          // Upload to S3
+          const fileKey = `${uuidv4()}${path.extname(file.originalname)}`;
+          const fileBuffer = file.buffer;
+          fileUrl = await uploadToS3(fileKey, fileBuffer, file.mimetype);
+        } else {
+          // Local filesystem (fallback for development)
+          fileUrl = `/uploads/${file.filename}`;
+        }
 
         // Tarkista, onko sama tiedosto jo tallennettu
         const existingFile = await pool.query(

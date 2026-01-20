@@ -77,12 +77,15 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files
-const uploadDir = process.env.UPLOAD_DIR || './uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// Serve uploaded files (only if not using S3)
+const USE_S3 = !!process.env.AWS_S3_BUCKET_NAME;
+if (!USE_S3) {
+  const uploadDir = process.env.UPLOAD_DIR || './uploads';
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  app.use('/uploads', express.static(uploadDir));
 }
-app.use('/uploads', express.static(uploadDir));
 
 // Health check
 app.get('/health', async (req, res) => {

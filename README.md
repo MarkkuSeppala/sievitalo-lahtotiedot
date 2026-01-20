@@ -155,11 +155,18 @@ Aseta seuraavat ympäristömuuttujat Renderin dashboardissa backend-palvelulle:
 - `RESEND_TEST_EMAIL` - Testauskäyttöön (ohjaa kaikki sähköpostit tähän osoitteeseen)
   - **Tärkeää:** Jos käytät Resendin testitilaa (ei vahvistettua domainia), aseta tämä API-avaimen rekisteröityyn osoitteeseen (esim. `markku.seppala@gmail.com`). Tämä toimii myös tuotannossa, jos käytät testitilaa.
 
+**AWS S3 (suositeltu tuotannossa):**
+- `AWS_REGION` - AWS-alue (esim. `eu-north-1`, `us-east-1`)
+- `AWS_ACCESS_KEY_ID` - AWS IAM-käyttäjän access key ID
+- `AWS_SECRET_ACCESS_KEY` - AWS IAM-käyttäjän secret access key
+- `AWS_S3_BUCKET_NAME` - S3-bucketin nimi (esim. `lahtotiedot-files`)
+- `AWS_S3_PUBLIC_URL` - (Vapaaehtoinen) Julkinen URL bucketille, jos bucket on julkinen (esim. `https://lahtotiedot-files.s3.eu-north-1.amazonaws.com`). Jos ei asetettu, käytetään presigned URL:ia.
+
 **Automaattisesti asetettavat:**
 - `DATABASE_URL` - Asetetaan automaattisesti PostgreSQL-palvelusta
 - `PORT` - Asetetaan automaattisesti Renderissä (3001)
 - `NODE_ENV` - Asetetaan automaattisesti `production`
-- `UPLOAD_DIR` - Asetettu `/tmp/uploads` (ephemeral, harkitse S3:ta tuotannossa)
+- `UPLOAD_DIR` - Asetettu `/tmp/uploads` (käytetään vain jos S3 ei ole konfiguroitu)
 
 #### Frontend-palvelu
 
@@ -186,10 +193,41 @@ npm run create-admin admin@sievitalo.fi salasana123
 
 ### 5. Tiedostotallennus
 
-**Huomio:** Renderin filesystem on ephemeral (väliaikainen). Tiedostot katoavat palvelun uudelleenkäynnistyksessä. Tuotannossa suositellaan:
+**Huomio:** Renderin filesystem on ephemeral (väliaikainen). Tiedostot katoavat palvelun uudelleenkäynnistyksessä. 
 
-- AWS S3 -tallennusta tiedostoille
-- Tietokantaan tallennusta pienten tiedostojen osalta
+**AWS S3 -konfiguraatio (suositeltu tuotannossa):**
+
+1. Luo AWS S3 bucket:
+   - Mene AWS Console > S3
+   - Luo uusi bucket (esim. `lahtotiedot-files`)
+   - Valitse sopiva alue (esim. `eu-north-1`)
+   - **Tärkeää:** Jos haluat käyttää presigned URL:ia (suositeltu), bucketin ei tarvitse olla julkinen. Jos haluat käyttää julkista URL:ia, konfiguroi bucket CORS-asetukset.
+
+2. Luo IAM-käyttäjä S3:lle:
+   - Mene AWS Console > IAM > Users
+   - Luo uusi käyttäjä (esim. `lahtotiedot-s3-user`)
+   - Liitä käyttäjälle seuraava policy (korvaa `YOUR-BUCKET-NAME`):
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "s3:PutObject",
+           "s3:GetObject",
+           "s3:DeleteObject"
+         ],
+         "Resource": "arn:aws:s3:::YOUR-BUCKET-NAME/*"
+       }
+     ]
+   }
+   ```
+   - Luo Access Key käyttäjälle ja tallenna `AWS_ACCESS_KEY_ID` ja `AWS_SECRET_ACCESS_KEY`
+
+3. Aseta ympäristömuuttujat Renderissä (katso yllä "AWS S3" -osio)
+
+**Fallback:** Jos S3-ympäristömuuttujat eivät ole asetettu, sovellus käyttää paikallista filesystemia (`UPLOAD_DIR`). Tämä toimii kehitysympäristössä, mutta **ei tuotannossa Renderissä** (tiedostot katoavat).
 
 ### 6. CORS-asetukset
 

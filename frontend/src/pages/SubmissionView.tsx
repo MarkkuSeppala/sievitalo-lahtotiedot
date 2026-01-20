@@ -201,6 +201,25 @@ export default function SubmissionView() {
     }
   };
 
+  const exportZip = async () => {
+    if (!submission?.id) return;
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/submissions/${submission.id}/zip`,
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `submission-${submission.id}-files.zip`);
+      document.body.appendChild(link);
+      link.click();
+    } catch (error) {
+      console.error('Error exporting ZIP:', error);
+      alert('Liitteiden lataus epäonnistui');
+    }
+  };
+
   if (loading) {
     return <div className="container">Ladataan...</div>;
   }
@@ -213,9 +232,14 @@ export default function SubmissionView() {
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>Lomakkeen vastaus</h1>
-        <button onClick={exportPDF} className="btn btn-primary">
-          Vie PDF:ksi
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={exportZip} className="btn btn-secondary">
+            Lataa kaikki liitteet zip-pakettina
+          </button>
+          <button onClick={exportPDF} className="btn btn-primary">
+            Vie PDF:ksi
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -269,7 +293,9 @@ export default function SubmissionView() {
                           <li key={`a-${idx}`} style={{ marginBottom: '5px' }}>
                             {label}:&nbsp;
                             <a
-                              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${f.url}`}
+                              href={f.url.startsWith('http://') || f.url.startsWith('https://') 
+                                ? f.url 
+                                : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${f.url}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{ color: '#007bff', textDecoration: 'underline' }}
@@ -371,7 +397,9 @@ export default function SubmissionView() {
                         {files.map((file: any, idx: number) => (
                           <li key={idx} style={{ marginBottom: '5px' }}>
                             <a 
-                              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${file.url}`} 
+                              href={file.url.startsWith('http://') || file.url.startsWith('https://') 
+                                ? file.url 
+                                : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${file.url}`} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               style={{ color: '#007bff', textDecoration: 'underline' }}

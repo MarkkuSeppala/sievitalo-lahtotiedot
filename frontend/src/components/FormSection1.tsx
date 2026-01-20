@@ -51,7 +51,9 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
           {files.map((file: any, idx: number) => (
             <li key={idx} style={{ marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <a 
-                href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${file.url}`} 
+                href={file.url.startsWith('http://') || file.url.startsWith('https://') 
+                  ? file.url 
+                  : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${file.url}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{ color: '#007bff', textDecoration: 'underline' }}

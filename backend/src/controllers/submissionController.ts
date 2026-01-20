@@ -2,6 +2,10 @@ import { Response } from 'express';
 import { pool } from '../db';
 import { AuthRequest } from '../middleware/auth';
 import PDFDocument from 'pdfkit';
+import archiver from 'archiver';
+import fs from 'fs';
+import path from 'path';
+import { downloadFromS3 } from '../services/s3Service';
 
 export const getSubmissions = async (req: AuthRequest, res: Response) => {
   try {
@@ -374,3 +378,115 @@ export const exportSubmissionPDF = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const exportSubmissionZip = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Get submission
+    const submissionResult = await pool.query(
+      `SELECT s.*, c.name as customer_name, c.email as customer_email, c.edustaja_id
+       FROM submissions s
+       JOIN customers c ON s.customer_id = c.id
+       WHERE s.id = $1`,
+      [id]
+    );
+
+    if (submissionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+
+    const submission = submissionResult.rows[0];
+
+    // Check permissions
+    if (req.user?.role === 'edustaja') {
+      if (submission.edustaja_id !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+
+    // Get all files
+    const filesResult = await pool.query(
+      'SELECT id, field_name, file_name, file_url FROM submission_files WHERE submission_id = $1',
+      [id]
+    );
+
+    if (filesResult.rows.length === 0) {
+      return res.status(404).json({ error: 'No files found for this submission' });
+    }
+
+    // Track file names to handle duplicates
+    const fileNameCounts = new Map<string, number>();
+    const USE_S3 = !!process.env.AWS_S3_BUCKET_NAME;
+    const uploadDir = process.env.UPLOAD_DIR || './uploads';
+
+    // Set up zip archive
+    const archive = archiver('zip', {
+      zlib: { level: 9 } // Maximum compression
+    });
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="submission-${id}-files.zip"`);
+
+    // Pipe archive to response
+    archive.pipe(res);
+
+    // Process each file
+    for (const file of filesResult.rows) {
+      let fileBuffer: Buffer;
+      let fileName = file.file_name;
+
+      // Determine file path/URL
+      const fileUrl = file.file_url;
+
+      if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+        // S3 file - download from S3
+        try {
+          fileBuffer = await downloadFromS3(fileUrl);
+        } catch (error) {
+          console.error(`Error downloading file ${fileUrl} from S3:`, error);
+          continue; // Skip this file if download fails
+        }
+      } else if (fileUrl.startsWith('/uploads/')) {
+        // Local filesystem file
+        const filePath = path.join(uploadDir, path.basename(fileUrl));
+        try {
+          if (!fs.existsSync(filePath)) {
+            console.error(`File not found: ${filePath}`);
+            continue; // Skip this file if it doesn't exist
+          }
+          fileBuffer = fs.readFileSync(filePath);
+        } catch (error) {
+          console.error(`Error reading file ${filePath}:`, error);
+          continue; // Skip this file if read fails
+        }
+      } else {
+        console.error(`Unknown file URL format: ${fileUrl}`);
+        continue; // Skip this file
+      }
+
+      // Handle duplicate file names by adding field_name prefix
+      const count = fileNameCounts.get(fileName) || 0;
+      fileNameCounts.set(fileName, count + 1);
+
+      let zipEntryName: string;
+      if (count > 0) {
+        // Duplicate name - add field_name prefix
+        zipEntryName = `${file.field_name}_${fileName}`;
+      } else {
+        zipEntryName = fileName;
+      }
+
+      // Add file to zip archive
+      archive.append(fileBuffer, { name: zipEntryName });
+    }
+
+    // Finalize the archive
+    await archive.finalize();
+  } catch (error) {
+    console.error('Export ZIP error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+};
