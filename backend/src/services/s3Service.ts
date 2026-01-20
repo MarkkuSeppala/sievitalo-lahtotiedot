@@ -98,49 +98,73 @@ export async function downloadFromS3(urlOrKey: string): Promise<Buffer> {
     throw new Error('AWS_S3_BUCKET_NAME environment variable is not set');
   }
 
-  // Extract key from URL if full URL is provided
-  let s3Key: string;
+  // If it's a presigned URL (contains query params), download directly via HTTP
   if (urlOrKey.startsWith('http://') || urlOrKey.startsWith('https://')) {
-    // It's a URL - try to extract the key
-    // Presigned URLs have the key in query params or path
-    // Public URLs have the key in the path
-    try {
-      const url = new URL(urlOrKey);
-      // Remove leading slash from pathname
-      s3Key = url.pathname.replace(/^\//, '');
-      // If pathname is empty, try to get from query params (presigned URL)
-      if (!s3Key && url.searchParams.has('key')) {
-        s3Key = url.searchParams.get('key') || '';
+    const url = new URL(urlOrKey);
+    
+    // If it has query params, it's likely a presigned URL - download via HTTP
+    if (url.search) {
+      try {
+        const https = urlOrKey.startsWith('https://') ? require('https') : require('http');
+        return new Promise((resolve, reject) => {
+          https.get(urlOrKey, (response: any) => {
+            if (response.statusCode !== 200) {
+              reject(new Error(`Failed to download: ${response.statusCode}`));
+              return;
+            }
+            const chunks: Uint8Array[] = [];
+            response.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+            response.on('end', () => resolve(Buffer.concat(chunks)));
+            response.on('error', reject);
+          }).on('error', reject);
+        });
+      } catch (error) {
+        throw new Error(`Failed to download from presigned URL: ${error}`);
       }
-      // If still empty, try to extract from the last part of the URL
-      if (!s3Key) {
-        const parts = url.pathname.split('/');
-        s3Key = parts[parts.length - 1] || urlOrKey;
-      }
-    } catch {
-      // If URL parsing fails, try to extract key from the string
-      const parts = urlOrKey.split('/');
+    }
+    
+    // Public URL - extract key and use GetObjectCommand
+    let s3Key = url.pathname.replace(/^\//, '');
+    // Remove bucket name from path if present
+    if (s3Key.startsWith(BUCKET_NAME + '/')) {
+      s3Key = s3Key.substring(BUCKET_NAME.length + 1);
+    }
+    if (!s3Key) {
+      const parts = url.pathname.split('/');
       s3Key = parts[parts.length - 1] || urlOrKey;
     }
-  } else {
-    // It's already a key
-    s3Key = urlOrKey;
-  }
+    
+    const command = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: s3Key,
+    });
 
-  const command = new GetObjectCommand({
-    Bucket: BUCKET_NAME,
-    Key: s3Key,
-  });
-
-  const response = await s3Client.send(command);
-  
-  // Convert stream to Buffer
-  const chunks: Uint8Array[] = [];
-  if (response.Body) {
-    for await (const chunk of response.Body as any) {
-      chunks.push(chunk);
+    const response = await s3Client.send(command);
+    
+    const chunks: Uint8Array[] = [];
+    if (response.Body) {
+      for await (const chunk of response.Body as any) {
+        chunks.push(chunk);
+      }
     }
+    
+    return Buffer.concat(chunks);
+  } else {
+    // It's already a key - use GetObjectCommand directly
+    const command = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: urlOrKey,
+    });
+
+    const response = await s3Client.send(command);
+    
+    const chunks: Uint8Array[] = [];
+    if (response.Body) {
+      for await (const chunk of response.Body as any) {
+        chunks.push(chunk);
+      }
+    }
+    
+    return Buffer.concat(chunks);
   }
-  
-  return Buffer.concat(chunks);
 }
