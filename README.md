@@ -24,18 +24,17 @@ Sovellus korvaa Google Forms -lomakkeen rakennuslupakuvien suunnittelun lähtöt
    ```bash
    cp backend/.env.example backend/.env
    ```
-3. Aseta sähköpostipalvelun ympäristömuuttujat (Resend):
+3. Aseta sähköpostipalvelun ympäristömuuttujat (Gmail SMTP):
    ```bash
-   export RESEND_API_KEY="your_resend_api_key_here"
-   export RESEND_FROM_EMAIL="onboarding@resend.dev"  # Vapaaehtoinen (kehitys)
-   export RESEND_TEST_EMAIL="your-email@gmail.com"  # Vapaaehtoinen (kehitys)
+   export SMTP_HOST="smtp.gmail.com"
+   export SMTP_PORT="587"
+   export SMTP_USER="oma.nimi@gmail.com"
+   export SMTP_PASSWORD="<Gmail App Password>"
+   export EMAIL_FROM="oma.nimi@gmail.com"
    export FRONTEND_URL="http://localhost:3000"  # Vapaaehtoinen
    ```
    
-   **Huom**: 
-   - Kehitysvaiheessa käytetään Resendin oletusdomainia (`onboarding@resend.dev`), joka toimii ilman domain-vahvistusta.
-   - Resendin testitilassa voi lähettää sähköpostia vain API-avaimen rekisteröityyn osoitteeseen. Aseta `RESEND_TEST_EMAIL` API-avaimen rekisteröityyn osoitteeseen (esim. `markku.seppala@gmail.com`), jotta kaikki sähköpostit ohjataan tähän osoitteeseen kehitysympäristössä.
-   - Tuotannossa täytyy vahvistaa oma domain Resendissä ja asettaa `RESEND_FROM_EMAIL` esim. `noreply@sievitalo.fi`.
+   **Huom**: `SMTP_PASSWORD` on Googlen App Password, ei tavallinen Gmail-salasana. Luo App Password: Google-tili > Turvallisuus > 2-vaiheinen vahvistus > Sovellus salasanat. Ei domain-vahvistusta tarvita; viestit voi lähettää mihin tahansa vastaanottajaan (esim. @sievitalo.fi).
    
    Vaihtoehtoisesti voit luoda `.env` tiedoston projektin juureen ja lisätä muuttujat sinne.
 4. Käynnistä Docker-ympäristö:
@@ -148,12 +147,13 @@ Aseta seuraavat ympäristömuuttujat Renderin dashboardissa backend-palvelulle:
 - `JWT_SECRET` - Vahva salaisuus JWT-tokenien allekirjoitukseen (esim. generoi: `openssl rand -base64 32`)
   - **TÄRKEÄÄ:** Jos tämä puuttuu tai on eri kuin kehitysympäristössä, tokenit eivät toimi. Käyttäjien täytyy kirjautua uudelleen tuotannossa.
 - `FRONTEND_URL` - Frontend-palvelun URL Renderissä (esim. `https://lahtotiedot-frontend.onrender.com`)
-- `RESEND_API_KEY` - Resend API-avain sähköpostien lähettämiseen
-- `RESEND_FROM_EMAIL` - Lähettäjän sähköpostiosoite (vahvistettu domain, esim. `noreply@sievitalo.fi`)
+- `SMTP_USER` - Gmail-osoite (esim. `oma.nimi@gmail.com`)
+- `SMTP_PASSWORD` - Gmail App Password (ei tavallinen salasana; luo Google-tilillä Sovellus salasanat)
+- `EMAIL_FROM` - Lähettäjän sähköpostiosoite (esim. sama kuin SMTP_USER)
 
-**Vapaaehtoiset:**
-- `RESEND_TEST_EMAIL` - Testauskäyttöön (ohjaa kaikki sähköpostit tähän osoitteeseen)
-  - **Tärkeää:** Jos käytät Resendin testitilaa (ei vahvistettua domainia), aseta tämä API-avaimen rekisteröityyn osoitteeseen (esim. `markku.seppala@gmail.com`). Tämä toimii myös tuotannossa, jos käytät testitilaa.
+**Vapaaehtoiset (sähköposti):**
+- `SMTP_HOST` - Oletus `smtp.gmail.com`
+- `SMTP_PORT` - Oletus `587` (STARTTLS)
 
 **AWS S3 (suositeltu tuotannossa):**
 - `AWS_REGION` - AWS-alue (esim. `eu-north-1`, `us-east-1`)

@@ -330,6 +330,7 @@ docker-compose restart backend
 
 ## Huomioita
 
+- Sähköpostilähetys käyttää Gmail SMTP:tä (STARTTLS, port 587). Tarvittavat ympäristömuuttujat: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`. Yksityiskohtaiset ohjeet ja App Password -huomio: README.md.
 - Tietokantatiedot säilyvät volyymissa `postgres_data`, joten ne eivät katoa konttien sammutuksen yhteydessä
 - Jos haluat aloittaa puhtaalta pöydältä, käytä `docker-compose down -v` (poistaa kaikki volyymit)
 - Backend ja frontend käyttävät volume-mountteja, joten koodimuutokset näkyvät automaattisesti ilman uudelleenrakennusta

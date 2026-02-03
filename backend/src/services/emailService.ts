@@ -1,12 +1,19 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-// Initialize Resend only when API key is available
-const getResend = () => {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    throw new Error('RESEND_API_KEY is not set');
+const getTransport = () => {
+  const user = process.env.SMTP_USER;
+  const password = process.env.SMTP_PASSWORD;
+  if (!user || !password) {
+    throw new Error('SMTP_USER and SMTP_PASSWORD must be set. Use Gmail App Password for Gmail.');
   }
-  return new Resend(apiKey);
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: false,
+    auth: { user, pass: password },
+  });
 };
 
 export interface FormSubmissionEmailData {
@@ -18,34 +25,18 @@ export interface FormSubmissionEmailData {
 
 export const sendFormSubmissionEmail = async (data: FormSubmissionEmailData): Promise<void> => {
   try {
-    if (!process.env.RESEND_API_KEY) {
-      const errorMsg = 'RESEND_API_KEY is not set. Please configure RESEND_API_KEY environment variable.';
+    const { customerName, customerEmail, representativeEmail, formUrl } = data;
+
+    const fromRaw = process.env.EMAIL_FROM;
+    if (!fromRaw) {
+      const errorMsg = 'EMAIL_FROM is not set. Please configure EMAIL_FROM environment variable.';
       console.error('❌ Email service error:', errorMsg);
       throw new Error(errorMsg);
     }
+    const fromEmail = fromRaw.includes('<') ? fromRaw : `Lähtötiedot-järjestelmä <${fromRaw}>`;
 
-    const resend = getResend();
-    const { customerName, customerEmail, representativeEmail, formUrl } = data;
+    console.log(`📧 Attempting to send email to ${representativeEmail} from ${fromEmail}`);
 
-    // Format from email with friendly name (Resend API format: "Name <email>")
-    const fromEmailRaw = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-    const fromEmail = fromEmailRaw.includes('<') 
-      ? fromEmailRaw 
-      : `Lähtötiedot-järjestelmä <${fromEmailRaw}>`;
-    
-    // If RESEND_TEST_EMAIL is set, redirect all emails to that address
-    // This is needed because Resend test mode only allows sending to the API key's registered email
-    // Use test email if configured, regardless of NODE_ENV (useful for test API keys in production)
-    const testEmail = process.env.RESEND_TEST_EMAIL;
-    const actualRecipient = testEmail ? testEmail : representativeEmail;
-    
-    if (testEmail && actualRecipient !== representativeEmail) {
-      console.log(`⚠️ Test mode: Redirecting email from ${representativeEmail} to test address ${testEmail}`);
-    }
-    
-    console.log(`📧 Attempting to send email to ${actualRecipient} from ${fromEmail}`);
-
-    // Plain text version
     const textContent = `
 Hei,
 
@@ -58,7 +49,6 @@ Terveisin,
 Lähtötiedot-järjestelmä
     `.trim();
 
-    // HTML version for better email client support
     const htmlContent = `
 <!DOCTYPE html>
 <html>
@@ -94,33 +84,27 @@ Lähtötiedot-järjestelmä
 </html>
     `.trim();
 
-    // Send email using Resend API (to must be an array according to documentation)
-    const result = await resend.emails.send({
+    const transport = getTransport();
+    const info = await transport.sendMail({
       from: fromEmail,
-      to: [actualRecipient], // Resend API requires array for 'to' parameter
+      to: representativeEmail,
       subject: `Lomake saapunut asiakkaalta ${customerName}`,
+      text: textContent,
       html: htmlContent,
-      text: textContent, // Plain text fallback for email clients that don't support HTML
     });
-
-    if (result.error) {
-      console.error('❌ Resend API error:', JSON.stringify(result.error, null, 2));
-      throw new Error(`Failed to send email: ${JSON.stringify(result.error)}`);
-    }
 
     console.log('✅ Email sent successfully:', {
-      id: result.data?.id,
-      to: actualRecipient,
-      originalRecipient: representativeEmail,
-      from: fromEmail
+      messageId: info.messageId,
+      to: representativeEmail,
+      from: fromEmail,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { message?: string; stack?: string };
     console.error('❌ Error sending email:', {
-      message: error.message,
-      stack: error.stack,
-      data: data
+      message: err.message,
+      stack: err.stack,
+      data,
     });
     throw error;
   }
 };
-
