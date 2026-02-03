@@ -41,8 +41,10 @@ export const getCustomers = async (req: AuthRequest, res: Response) => {
     let query = `
       SELECT c.id, c.name, c.email, c.token, c.created_at,
              COUNT(s.id) FILTER (WHERE s.status = 'submitted') as submission_count,
-             MAX(s.submitted_at) FILTER (WHERE s.status = 'submitted') as last_submission
+             MAX(s.submitted_at) FILTER (WHERE s.status = 'submitted') as last_submission,
+             MAX(u.email) AS edustaja_email
       FROM customers c
+      LEFT JOIN users u ON c.edustaja_id = u.id
       LEFT JOIN submissions s ON c.id = s.customer_id
     `;
     const params: any[] = [];

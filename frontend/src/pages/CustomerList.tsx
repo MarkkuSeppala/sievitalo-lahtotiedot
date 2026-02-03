@@ -11,6 +11,7 @@ interface Customer {
   created_at: string;
   submission_count: number;
   last_submission: string | null;
+  edustaja_email?: string | null;
 }
 
 export default function CustomerList() {
@@ -88,6 +89,7 @@ export default function CustomerList() {
               <th style={{ padding: '10px', textAlign: 'left' }}>Sähköposti</th>
               <th style={{ padding: '10px', textAlign: 'left' }}>Luotu</th>
               <th style={{ padding: '10px', textAlign: 'left' }}>Vastauksia</th>
+              <th style={{ padding: '10px', textAlign: 'left' }}>Edustaja</th>
               <th style={{ padding: '10px', textAlign: 'left' }}>Toiminnot</th>
             </tr>
           </thead>
@@ -100,6 +102,7 @@ export default function CustomerList() {
                   {new Date(customer.created_at).toLocaleDateString('fi-FI')}
                 </td>
                 <td style={{ padding: '10px' }}>{customer.submission_count || 0}</td>
+                <td style={{ padding: '10px' }}>{customer.edustaja_email ?? '–'}</td>
                 <td style={{ padding: '10px' }}>
                   <a
                     href={`${window.location.origin}/form/${customer.token}`}
