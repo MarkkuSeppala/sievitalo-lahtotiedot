@@ -289,13 +289,14 @@ export default function SubmissionView() {
                     <ul style={{ marginTop: '5px', marginLeft: '20px', listStyleType: 'disc' }}>
                       {changes.filesAdded.map((f: any, idx: number) => {
                         const label = FILE_FIELD_LABELS[f.fieldName] || f.fieldName;
+                        const fileHref = f.id != null
+                          ? `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/submissions/${submission.id}/files/${f.id}`
+                          : (f.url?.startsWith('http://') || f.url?.startsWith('https://') ? f.url : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${f.url || ''}`);
                         return (
                           <li key={`a-${idx}`} style={{ marginBottom: '5px' }}>
                             {label}:&nbsp;
                             <a
-                              href={f.url.startsWith('http://') || f.url.startsWith('https://') 
-                                ? f.url 
-                                : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${f.url}`}
+                              href={fileHref}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{ color: '#007bff', textDecoration: 'underline' }}
@@ -397,9 +398,7 @@ export default function SubmissionView() {
                         {files.map((file: any, idx: number) => (
                           <li key={idx} style={{ marginBottom: '5px' }}>
                             <a 
-                              href={file.url.startsWith('http://') || file.url.startsWith('https://') 
-                                ? file.url 
-                                : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${file.url}`} 
+                              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/submissions/${submission.id}/files/${file.id}`}
                               target="_blank" 
                               rel="noopener noreferrer"
                               style={{ color: '#007bff', textDecoration: 'underline' }}

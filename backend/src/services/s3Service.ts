@@ -90,90 +90,64 @@ export async function getPresignedUrl(key: string, expiresIn: number = 3600): Pr
 }
 
 /**
- * Download a file from S3 and return it as a Buffer
- * Accepts either an S3 key or a full S3 URL (presigned or public)
+ * Extract S3 object key from a full S3 URL (presigned or public).
+ * Returns null if the input is not an http(s) URL.
+ */
+export function extractS3KeyFromUrl(urlOrKey: string): string | null {
+  if (!urlOrKey.startsWith('http://') && !urlOrKey.startsWith('https://')) {
+    return null;
+  }
+  const url = new URL(urlOrKey);
+  let s3Key = url.pathname.replace(/^\//, '');
+  if (s3Key.startsWith(BUCKET_NAME + '/')) {
+    s3Key = s3Key.substring(BUCKET_NAME.length + 1);
+  }
+  if (!s3Key) {
+    const parts = url.pathname.split('/');
+    s3Key = parts[parts.length - 1] || urlOrKey;
+  }
+  return s3Key || null;
+}
+
+/**
+ * Download a file from S3 and return it as a Buffer.
+ * Accepts either an S3 key or a full S3 URL. For URLs we always extract the key
+ * and use GetObjectCommand so that expired presigned URLs still work.
  */
 export async function downloadFromS3(urlOrKey: string): Promise<Buffer> {
   if (!BUCKET_NAME) {
     throw new Error('AWS_S3_BUCKET_NAME environment variable is not set');
   }
 
-  // If it's a presigned URL (contains query params), download directly via HTTP
+  let s3Key: string;
   if (urlOrKey.startsWith('http://') || urlOrKey.startsWith('https://')) {
-    const url = new URL(urlOrKey);
-    
-    // If it has query params, it's likely a presigned URL - download via HTTP
-    if (url.search) {
-      try {
-        const https = urlOrKey.startsWith('https://') ? require('https') : require('http');
-        return new Promise((resolve, reject) => {
-          https.get(urlOrKey, (response: any) => {
-            if (response.statusCode !== 200) {
-              reject(new Error(`Failed to download: ${response.statusCode}`));
-              return;
-            }
-            const chunks: Uint8Array[] = [];
-            response.on('data', (chunk: Uint8Array) => chunks.push(chunk));
-            response.on('end', () => resolve(Buffer.concat(chunks)));
-            response.on('error', reject);
-          }).on('error', reject);
-        });
-      } catch (error) {
-        throw new Error(`Failed to download from presigned URL: ${error}`);
-      }
+    const extracted = extractS3KeyFromUrl(urlOrKey);
+    if (!extracted) {
+      throw new Error(`Could not extract S3 key from URL: ${urlOrKey.substring(0, 100)}`);
     }
-    
-    // Public URL - extract key and use GetObjectCommand
-    let s3Key = url.pathname.replace(/^\//, '');
-    // Remove bucket name from path if present
-    if (s3Key.startsWith(BUCKET_NAME + '/')) {
-      s3Key = s3Key.substring(BUCKET_NAME.length + 1);
-    }
-    if (!s3Key) {
-      const parts = url.pathname.split('/');
-      s3Key = parts[parts.length - 1] || urlOrKey;
-    }
-    
-    const command = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: s3Key,
-    });
+    s3Key = extracted;
+  } else {
+    s3Key = urlOrKey;
+  }
 
+  const command = new GetObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: s3Key,
+  });
+
+  try {
     const response = await s3Client.send(command);
-    
     const chunks: Uint8Array[] = [];
     if (response.Body) {
       for await (const chunk of response.Body as any) {
         chunks.push(chunk);
       }
     }
-    
     return Buffer.concat(chunks);
-  } else {
-    // It's already a key - use GetObjectCommand directly
-    const command = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: urlOrKey,
-    });
-
-    try {
-      const response = await s3Client.send(command);
-      
-      const chunks: Uint8Array[] = [];
-      if (response.Body) {
-        for await (const chunk of response.Body as any) {
-          chunks.push(chunk);
-        }
-      }
-      
-      return Buffer.concat(chunks);
-    } catch (error: any) {
-      // If error mentions ListBucket, it's likely a permissions issue
-      // or the file doesn't exist. Re-throw with clearer message.
-      if (error?.message?.includes('ListBucket')) {
-        throw new Error(`File not found in S3 (key: ${urlOrKey}). ListBucket permission error may indicate missing file or insufficient permissions.`);
-      }
-      throw error;
+  } catch (error: any) {
+    if (error?.message?.includes('ListBucket')) {
+      throw new Error(`File not found in S3 (key: ${s3Key}). ListBucket permission error may indicate missing file or insufficient permissions.`);
     }
+    throw error;
   }
 }
