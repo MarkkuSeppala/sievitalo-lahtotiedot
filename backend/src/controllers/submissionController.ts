@@ -5,7 +5,7 @@ import PDFDocument from 'pdfkit';
 import archiver from 'archiver';
 import fs from 'fs';
 import path from 'path';
-import { downloadFromS3 } from '../services/s3Service';
+import { downloadFromS3, getPresignedUrl, extractS3KeyFromUrl } from '../services/s3Service';
 
 export const getSubmissions = async (req: AuthRequest, res: Response) => {
   try {
@@ -121,7 +121,7 @@ export const getSubmissionChanges = async (req: AuthRequest, res: Response) => {
 
     // Files diff (by field_name + file_name + file_url)
     const [curFilesRes, prevFilesRes] = await Promise.all([
-      pool.query('SELECT field_name, file_name, file_url FROM submission_files WHERE submission_id = $1', [id]),
+      pool.query('SELECT id, field_name, file_name, file_url FROM submission_files WHERE submission_id = $1', [id]),
       pool.query('SELECT field_name, file_name, file_url FROM submission_files WHERE submission_id = $1', [parentId])
     ]);
 
@@ -131,7 +131,7 @@ export const getSubmissionChanges = async (req: AuthRequest, res: Response) => {
 
     const filesAdded = curFilesRes.rows
       .filter((r: any) => !prevKeys.has(keyOf(r)))
-      .map((r: any) => ({ fieldName: r.field_name, fileName: r.file_name, url: r.file_url }));
+      .map((r: any) => ({ id: r.id, fieldName: r.field_name, fileName: r.file_name, url: r.file_url }));
 
     const filesRemoved = prevFilesRes.rows
       .filter((r: any) => !curKeys.has(keyOf(r)))
@@ -229,6 +229,61 @@ export const getSubmissionById = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Get submission error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+/**
+ * Redirect to a fresh download URL for a submission file.
+ * For S3: generates a new presigned URL (avoids expired links).
+ * For /uploads/: redirects to backend static file URL.
+ */
+export const getSubmissionFileRedirect = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id: submissionId, fileId } = req.params;
+
+    const submissionResult = await pool.query(
+      `SELECT s.id, s.customer_id, c.edustaja_id
+       FROM submissions s
+       JOIN customers c ON s.customer_id = c.id
+       WHERE s.id = $1`,
+      [submissionId]
+    );
+    if (submissionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+    const submission = submissionResult.rows[0];
+
+    if (req.user?.role === 'edustaja' && submission.edustaja_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const fileResult = await pool.query(
+      'SELECT file_url FROM submission_files WHERE id = $1 AND submission_id = $2',
+      [fileId, submissionId]
+    );
+    if (fileResult.rows.length === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    const fileUrl = fileResult.rows[0].file_url;
+
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+      const s3Key = extractS3KeyFromUrl(fileUrl);
+      if (!s3Key) {
+        return res.status(500).json({ error: 'Invalid file URL' });
+      }
+      const freshUrl = await getPresignedUrl(s3Key, 3600);
+      return res.redirect(302, freshUrl);
+    }
+
+    if (fileUrl.startsWith('/uploads/')) {
+      const baseUrl = process.env.API_URL || `${req.protocol}://${req.get('host') || ''}`;
+      return res.redirect(302, baseUrl.replace(/\/$/, '') + fileUrl);
+    }
+
+    return res.status(400).json({ error: 'Unsupported file URL format' });
+  } catch (error) {
+    console.error('Get submission file redirect error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -452,7 +507,7 @@ export const exportSubmissionZip = async (req: AuthRequest, res: Response) => {
       console.log(`[ZIP] Processing file: ${fileName}, URL: ${fileUrl.substring(0, 100)}...`);
 
       if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-        // S3 file - download from S3
+        // S3 file - download from S3 (uses key extraction so expired presigned URLs work)
         try {
           fileBuffer = await downloadFromS3(fileUrl);
           console.log(`[ZIP] Successfully downloaded ${fileName}, size: ${fileBuffer.length} bytes`);
@@ -466,7 +521,7 @@ export const exportSubmissionZip = async (req: AuthRequest, res: Response) => {
         // Local filesystem file (legacy format)
         const filePath = path.join(uploadDir, path.basename(fileUrl));
         let fileFound = false;
-        
+
         try {
           if (fs.existsSync(filePath)) {
             // File exists locally - read it
@@ -477,7 +532,7 @@ export const exportSubmissionZip = async (req: AuthRequest, res: Response) => {
           } else {
             // File not found locally - try S3 if enabled
             console.log(`[ZIP] File not found locally: ${filePath}, attempting S3 download...`);
-            
+
             if (USE_S3) {
               // Extract filename from URL (e.g., "884cd833-5602-40f4-a461-ab4fd2ecbc19.pdf")
               const s3Key = path.basename(fileUrl);
