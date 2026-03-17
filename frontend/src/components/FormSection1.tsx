@@ -231,7 +231,10 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
         <p>
           Useimmista kunnista on maksua vastaan saatavilla tietopaketti, joka sisältää kaavaotteen,
           kaavamääräykset, rakentamistapaohjeet sekä virallisen tonttikartan dwg-muodossa.
-          Dwg-muotoinen tonttikartta muodostuu myös maaperätutkimuksen yhteydessä.
+          Dwg-muotoinen tonttikartta muodostuu usein myös maaperätutkimuksen yhteydessä.
+          Tonttikartassa on pitäisi näkyä myös naapuritontit, jotta suunnittelija voi nähdä 
+          niillä olevat mahdolliset rakennukset
+          Dwg-kartan koordinaatisto täytyy olla ETRS-GK ja versio AutoCAD DWG 2010.
         </p>
         <p>
           Mikäli dwg-karttaa ei saa noista lähteistä, se pitää tilata Maanmittauslaitokselta.{' '}

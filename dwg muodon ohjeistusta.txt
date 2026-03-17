@@ -1,0 +1,6 @@
+Aineiston toimitusta varten tarvitsemme seuraavat tiedot:
+
+- dwg- aineiston koordinaatisto: ETRS-GK
+
+- dwg- aineiston versio: AutoCAD DWG 2010
+ 
