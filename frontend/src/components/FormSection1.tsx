@@ -234,16 +234,16 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
         </p>
         <p>Dwg-muotoinen tonttikartta muodostuu usein myös maaperätutkimuksen yhteydessä.</p>
         <p>
-          Tonttikartassa on pitäisi näkyä myös naapuritontit, jotta suunnittelija voi nähdä niillä olevat
-          mahdolliset rakennukset.
-        </p>
-        <p>Dwg-kartan koordinaatisto täytyy olla ETRS-GK ja versio AutoCAD DWG 2010.</p>
-        <p>
           Mikäli dwg-karttaa ei saa noista lähteistä, se pitää tilata Maanmittauslaitokselta.{' '}
           <a href="https://www.maanmittauslaitos.fi/kartat-ja-paikkatieto/kartat/osta-kartta" target="_blank" rel="noopener noreferrer">
             Maanmittauslaitos karttakauppa
           </a>
         </p>
+        <p>
+          Tonttikartassa on pitäisi näkyä myös naapuritontit, jotta suunnittelija voi nähdä niillä olevat
+          mahdolliset rakennukset.
+        </p>
+        <p>Dwg-kartan koordinaatisto täytyy olla ETRS-GK ja versio AutoCAD DWG 2010.</p>
       </div>
 
       <div className="form-group">
