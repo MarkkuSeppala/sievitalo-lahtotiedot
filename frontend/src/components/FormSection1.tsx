@@ -240,7 +240,7 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
           </a>
         </p>
         <p>
-          Tonttikartassa on pitäisi näkyä myös naapuritontit, jotta suunnittelija voi nähdä niillä olevat
+          Tonttikartassa pitäisi näkyä myös naapuritontit, jotta suunnittelija voi nähdä niillä olevat
           mahdolliset rakennukset.
         </p>
         <p>Dwg-kartan koordinaatisto täytyy olla ETRS-GK ja versio AutoCAD DWG 2010.</p>
