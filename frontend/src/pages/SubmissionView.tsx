@@ -220,6 +220,27 @@ export default function SubmissionView() {
     }
   };
 
+  const downloadSubmissionFile = async (fileId: number, fileName: string) => {
+    if (!submission?.id) return;
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/submissions/${submission.id}/files/${fileId}`,
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName || `submission-${submission.id}-file-${fileId}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Tiedoston lataus epäonnistui');
+    }
+  };
+
   if (loading) {
     return <div className="container">Ladataan...</div>;
   }
@@ -295,14 +316,32 @@ export default function SubmissionView() {
                         return (
                           <li key={`a-${idx}`} style={{ marginBottom: '5px' }}>
                             {label}:&nbsp;
-                            <a
-                              href={fileHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ color: '#007bff', textDecoration: 'underline' }}
-                            >
-                              {f.fileName}
-                            </a>
+                            {f.id != null ? (
+                              <button
+                                type="button"
+                                onClick={() => downloadSubmissionFile(f.id, f.fileName)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#007bff',
+                                  textDecoration: 'underline',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                  font: 'inherit'
+                                }}
+                              >
+                                {f.fileName}
+                              </button>
+                            ) : (
+                              <a
+                                href={fileHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: '#007bff', textDecoration: 'underline' }}
+                              >
+                                {f.fileName}
+                              </a>
+                            )}
                           </li>
                         );
                       })}
@@ -397,14 +436,21 @@ export default function SubmissionView() {
                       <ul style={{ marginTop: '5px', marginLeft: '20px', listStyleType: 'disc' }}>
                         {files.map((file: any, idx: number) => (
                           <li key={idx} style={{ marginBottom: '5px' }}>
-                            <a 
-                              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/submissions/${submission.id}/files/${file.id}`}
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              style={{ color: '#007bff', textDecoration: 'underline' }}
+                            <button
+                              type="button"
+                              onClick={() => downloadSubmissionFile(file.id, file.name)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#007bff',
+                                textDecoration: 'underline',
+                                cursor: 'pointer',
+                                padding: 0,
+                                font: 'inherit'
+                              }}
                             >
                               {file.name}
-                            </a>
+                            </button>
                           </li>
                         ))}
                       </ul>
