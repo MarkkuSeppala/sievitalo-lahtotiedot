@@ -5,7 +5,7 @@ import PDFDocument from 'pdfkit';
 import archiver from 'archiver';
 import fs from 'fs';
 import path from 'path';
-import { downloadFromS3, getPresignedUrl, extractS3KeyFromUrl } from '../services/s3Service';
+import { downloadFromS3 } from '../services/s3Service';
 
 export const getSubmissions = async (req: AuthRequest, res: Response) => {
   try {
@@ -259,29 +259,48 @@ export const getSubmissionFileRedirect = async (req: AuthRequest, res: Response)
     }
 
     const fileResult = await pool.query(
-      'SELECT file_url FROM submission_files WHERE id = $1 AND submission_id = $2',
+      'SELECT file_url, file_name FROM submission_files WHERE id = $1 AND submission_id = $2',
       [fileId, submissionId]
     );
     if (fileResult.rows.length === 0) {
       return res.status(404).json({ error: 'File not found' });
     }
-    const fileUrl = fileResult.rows[0].file_url;
+    const { file_url: fileUrl, file_name: fileName } = fileResult.rows[0];
+    const USE_S3 = !!process.env.AWS_S3_BUCKET_NAME;
+    const uploadDir = process.env.UPLOAD_DIR || './uploads';
+    let fileBuffer: Buffer | null = null;
 
     if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-      const s3Key = extractS3KeyFromUrl(fileUrl);
-      if (!s3Key) {
-        return res.status(500).json({ error: 'Invalid file URL' });
+      try {
+        fileBuffer = await downloadFromS3(fileUrl);
+      } catch (error: any) {
+        console.error(`[FILE] Error downloading file from S3 URL: ${error?.message || error}`);
+        return res.status(404).json({ error: 'File not found' });
       }
-      const freshUrl = await getPresignedUrl(s3Key, 3600);
-      return res.redirect(302, freshUrl);
+    } else if (fileUrl.startsWith('/uploads/')) {
+      const filePath = path.join(uploadDir, path.basename(fileUrl));
+
+      try {
+        if (fs.existsSync(filePath)) {
+          fileBuffer = fs.readFileSync(filePath);
+        } else if (USE_S3) {
+          const s3Key = path.basename(fileUrl);
+          fileBuffer = await downloadFromS3(s3Key);
+        } else {
+          return res.status(404).json({ error: 'File not found' });
+        }
+      } catch (error: any) {
+        console.error(`[FILE] Error reading submission file: ${error?.message || error}`);
+        return res.status(404).json({ error: 'File not found' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Unsupported file URL format' });
     }
 
-    if (fileUrl.startsWith('/uploads/')) {
-      const baseUrl = process.env.API_URL || `${req.protocol}://${req.get('host') || ''}`;
-      return res.redirect(302, baseUrl.replace(/\/$/, '') + fileUrl);
-    }
-
-    return res.status(400).json({ error: 'Unsupported file URL format' });
+    const safeFileName = (fileName || `submission-${submissionId}-file-${fileId}`).replace(/["\r\n]/g, '_');
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"`);
+    return res.status(200).send(fileBuffer);
   } catch (error) {
     console.error('Get submission file redirect error:', error);
     res.status(500).json({ error: 'Internal server error' });
