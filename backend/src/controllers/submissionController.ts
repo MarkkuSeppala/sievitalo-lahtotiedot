@@ -279,13 +279,28 @@ export const getSubmissionFileRedirect = async (req: AuthRequest, res: Response)
       }
     } else if (fileUrl.startsWith('/uploads/')) {
       const filePath = path.join(uploadDir, path.basename(fileUrl));
+      const normalizedUploadKey = fileUrl.replace(/^\/+/, '');
 
       try {
         if (fs.existsSync(filePath)) {
           fileBuffer = fs.readFileSync(filePath);
         } else if (USE_S3) {
-          const s3Key = path.basename(fileUrl);
-          fileBuffer = await downloadFromS3(s3Key);
+          const candidateKeys = [normalizedUploadKey, path.basename(fileUrl)];
+          let downloaded = false;
+
+          for (const key of candidateKeys) {
+            try {
+              fileBuffer = await downloadFromS3(key);
+              downloaded = true;
+              break;
+            } catch {
+              // Try next key variation.
+            }
+          }
+
+          if (!downloaded) {
+            return res.status(404).json({ error: 'File not found' });
+          }
         } else {
           return res.status(404).json({ error: 'File not found' });
         }
