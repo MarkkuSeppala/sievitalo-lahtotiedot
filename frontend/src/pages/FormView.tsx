@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import FormSection1 from '../components/FormSection1';
 import FormSection2 from '../components/FormSection2';
+import { PendingFormFile, appendPendingFilesToFormData } from '../utils/formFiles';
 
 export default function FormView() {
   const { token } = useParams<{ token: string }>();
@@ -30,29 +31,19 @@ export default function FormView() {
     }
   };
 
-  const handleSave = async (fields: any, files?: FileList, fieldNames?: Record<string, string>) => {
+  const handleSave = async (fields: any, pendingFiles?: PendingFormFile[]) => {
     setSaving(true);
     try {
       const formData = new FormData();
       formData.append('fields', JSON.stringify(fields));
-      
-      if (files && files.length > 0) {
-        Array.from(files).forEach((file) => {
-          formData.append('files', file);
-        });
-        if (fieldNames) {
-          formData.append('fieldNames', JSON.stringify(fieldNames));
-        }
+
+      if (pendingFiles && pendingFiles.length > 0) {
+        appendPendingFilesToFormData(formData, pendingFiles);
       }
 
       await axios.post(
         `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/form/${token}/save`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        }
+        formData
       );
       alert('Tallennettu!');
     } catch (error: any) {
@@ -65,29 +56,19 @@ export default function FormView() {
     }
   };
 
-  const handleSubmit = async (fields: any, files?: FileList, fieldNames?: Record<string, string>) => {
+  const handleSubmit = async (fields: any, pendingFiles?: PendingFormFile[]) => {
     setSaving(true);
     try {
       const formData = new FormData();
       formData.append('fields', JSON.stringify(fields));
-      
-      if (files) {
-        Array.from(files).forEach((file) => {
-          formData.append('files', file);
-        });
-        if (fieldNames) {
-          formData.append('fieldNames', JSON.stringify(fieldNames));
-        }
+
+      if (pendingFiles && pendingFiles.length > 0) {
+        appendPendingFilesToFormData(formData, pendingFiles);
       }
 
       await axios.post(
         `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/form/${token}/submit`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        }
+        formData
       );
       alert('Lomake lähetetty onnistuneesti!');
     } catch (error) {
@@ -138,8 +119,8 @@ export default function FormView() {
           data={data.submission}
           customer={data.customer}
           token={token || ''}
-          onSave={async (fields, files, fieldNames) => {
-            await handleSave(fields, files, fieldNames);
+          onSave={async (fields, pendingFiles) => {
+            await handleSave(fields, pendingFiles);
             // Reload data after save to ensure consistency
             await fetchData();
           }}
@@ -150,8 +131,8 @@ export default function FormView() {
         <FormSection2
           data={data.submission}
           token={token || ''}
-          onSave={async (fields, files, fieldNames) => {
-            await handleSave(fields, files, fieldNames);
+          onSave={async (fields, pendingFiles) => {
+            await handleSave(fields, pendingFiles);
             // Reload data after save to ensure consistency
             await fetchData();
           }}

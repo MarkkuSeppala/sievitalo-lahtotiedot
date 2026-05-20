@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { PendingFormFile, collectPendingFiles } from '../utils/formFiles';
 
 interface FormSection2Props {
   data: any;
   token: string;
-  onSave: (fields: any, files?: FileList, fieldNames?: Record<string, string>) => void;
+  onSave: (fields: any, pendingFiles?: PendingFormFile[]) => void;
   onDeleteFile: (fileId: number) => void;
-  onSubmit: (fields: any, files?: FileList, fieldNames?: Record<string, string>) => void;
+  onSubmit: (fields: any, pendingFiles?: PendingFormFile[]) => void;
   onBack: () => void;
   saving: boolean;
 }
@@ -150,18 +151,10 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
   };
 
   const handleSave = async () => {
-    const allFiles = new DataTransfer();
-    const fieldNames: Record<string, string> = {};
-    
-    Object.entries(fileInputs).forEach(([fieldName, fileList]) => {
-      fileList.forEach((file) => {
-        allFiles.items.add(file);
-        fieldNames[file.name] = fieldName;
-      });
-    });
-    
+    const pendingFiles = collectPendingFiles(fileInputs);
+
     try {
-      await onSave(fields, allFiles.files.length > 0 ? allFiles.files : undefined, fieldNames);
+      await onSave(fields, pendingFiles.length > 0 ? pendingFiles : undefined);
       // Tyhjennä fileInputs onnistuneen tallennuksen jälkeen
       setFileInputs({});
       // Resetoi file inputit
@@ -176,18 +169,10 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
   };
 
   const handleSubmit = async () => {
-    const allFiles = new DataTransfer();
-    const fieldNames: Record<string, string> = {};
-    
-    Object.entries(fileInputs).forEach(([fieldName, fileList]) => {
-      fileList.forEach((file) => {
-        allFiles.items.add(file);
-        fieldNames[file.name] = fieldName;
-      });
-    });
-    
+    const pendingFiles = collectPendingFiles(fileInputs);
+
     try {
-      await onSubmit(fields, allFiles.files.length > 0 ? allFiles.files : undefined, fieldNames);
+      await onSubmit(fields, pendingFiles.length > 0 ? pendingFiles : undefined);
       // Tyhjennä fileInputs onnistuneen lähetyksen jälkeen
       setFileInputs({});
       // Resetoi file inputit

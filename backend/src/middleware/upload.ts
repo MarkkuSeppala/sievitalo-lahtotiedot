@@ -2,6 +2,7 @@ import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
+import { decodeUploadedFilename } from '../utils/fileUpload';
 
 // Use memory storage for S3 uploads, disk storage as fallback for local development
 const USE_S3 = !!process.env.AWS_S3_BUCKET_NAME;
@@ -17,7 +18,8 @@ const storage = USE_S3
         cb(null, UPLOAD_DIR);
       },
       filename: (req, file, cb) => {
-        const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+        const decoded = decodeUploadedFilename(file.originalname);
+        const uniqueName = `${uuidv4()}${path.extname(decoded)}`;
         cb(null, uniqueName);
       }
     });
@@ -37,15 +39,15 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
     'image/x-png' // PNG variant
   ];
 
-  // Check by mimetype or file extension
-  const ext = path.extname(file.originalname).toLowerCase();
+  const decodedName = decodeUploadedFilename(file.originalname);
+  const ext = path.extname(decodedName).toLowerCase();
   const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.dwg'];
   
   if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
     cb(null, true);
   } else {
-    console.warn(`File rejected: ${file.originalname}, mimetype: ${file.mimetype}, ext: ${ext}`);
-    cb(new Error(`Invalid file type: ${file.originalname}. Allowed: PDF, JPG, PNG, DOC, DOCX, DWG`));
+    console.warn(`File rejected: ${decodedName}, mimetype: ${file.mimetype}, ext: ${ext}`);
+    cb(new Error(`Invalid file type: ${decodedName}. Allowed: PDF, JPG, PNG, DOC, DOCX, DWG`));
   }
 };
 

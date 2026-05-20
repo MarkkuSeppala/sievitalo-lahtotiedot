@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { PendingFormFile, collectPendingFiles } from '../utils/formFiles';
 
 interface FormSection1Props {
   data: any;
   customer?: any;
   token: string;
-  onSave: (fields: any, files?: FileList, fieldNames?: Record<string, string>) => void;
+  onSave: (fields: any, pendingFiles?: PendingFormFile[]) => void;
   onDeleteFile: (fileId: number) => void;
   onNext: () => void;
 }
@@ -154,18 +155,10 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onN
   };
 
   const handleSave = async () => {
-    const allFiles = new DataTransfer();
-    const fieldNames: Record<string, string> = {};
-    
-    Object.entries(fileInputs).forEach(([fieldName, fileList]) => {
-      fileList.forEach((file) => {
-        allFiles.items.add(file);
-        fieldNames[file.name] = fieldName;
-      });
-    });
-    
+    const pendingFiles = collectPendingFiles(fileInputs);
+
     try {
-      await onSave(fields, allFiles.files.length > 0 ? allFiles.files : undefined, fieldNames);
+      await onSave(fields, pendingFiles.length > 0 ? pendingFiles : undefined);
       // Tyhjennä fileInputs onnistuneen tallennuksen jälkeen
       setFileInputs({});
       // Resetoi file inputit

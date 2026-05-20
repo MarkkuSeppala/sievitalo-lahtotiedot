@@ -5,6 +5,59 @@ import fs from 'fs';
 import { sendFormSubmissionEmail } from '../services/emailService';
 import { uploadToS3, deleteFromS3 } from '../services/s3Service';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  decodeUploadedFilename,
+  parseFileFields,
+  parseLegacyFieldNames,
+  resolveUploadFieldName,
+} from '../utils/fileUpload';
+
+async function persistUploadedFiles(
+  submissionId: number,
+  files: Express.Multer.File[],
+  body: Record<string, unknown>
+): Promise<void> {
+  const fileFields = parseFileFields(body);
+  const legacyFieldNames = parseLegacyFieldNames(body);
+  const singleField = typeof body.fieldName === 'string' ? body.fieldName : undefined;
+  const USE_S3 = !!process.env.AWS_S3_BUCKET_NAME;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const fileName = decodeUploadedFilename(file.originalname);
+    const fieldName = resolveUploadFieldName(
+      i,
+      fileFields,
+      legacyFieldNames,
+      fileName,
+      file.originalname,
+      singleField
+    );
+
+    let fileUrl: string;
+
+    if (USE_S3) {
+      const fileKey = `${uuidv4()}${path.extname(fileName)}`;
+      fileUrl = await uploadToS3(fileKey, file.buffer, file.mimetype);
+    } else {
+      fileUrl = `/uploads/${file.filename}`;
+    }
+
+    const existingFile = await pool.query(
+      `SELECT id FROM submission_files 
+       WHERE submission_id = $1 AND field_name = $2 AND file_name = $3`,
+      [submissionId, fieldName, fileName]
+    );
+
+    if (existingFile.rows.length === 0) {
+      await pool.query(
+        `INSERT INTO submission_files (submission_id, field_name, file_name, file_url)
+         VALUES ($1, $2, $3, $4)`,
+        [submissionId, fieldName, fileName, fileUrl]
+      );
+    }
+  }
+}
 
 export const getSubmissionByToken = async (req: Request, res: Response) => {
   try {
@@ -104,7 +157,7 @@ export const getSubmissionByToken = async (req: Request, res: Response) => {
       }
       files[row.field_name].push({
         id: row.id,
-        name: row.file_name,
+        name: decodeUploadedFilename(row.file_name),
         url: row.file_url
       });
     });
@@ -173,44 +226,8 @@ export const saveSubmission = async (req: Request, res: Response) => {
       }
     }
 
-    // Save files
     if (files && files.length > 0) {
-      // Parse field names from request
-      const fieldNames = req.body.fieldNames ? JSON.parse(req.body.fieldNames) : {};
-      const USE_S3 = !!process.env.AWS_S3_BUCKET_NAME;
-      
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fieldName = fieldNames[file.originalname] || req.body.fieldName || 'general';
-        
-        let fileUrl: string;
-        
-        if (USE_S3) {
-          // Upload to S3
-          const fileKey = `${uuidv4()}${path.extname(file.originalname)}`;
-          const fileBuffer = file.buffer;
-          fileUrl = await uploadToS3(fileKey, fileBuffer, file.mimetype);
-        } else {
-          // Local filesystem (fallback for development)
-          fileUrl = `/uploads/${file.filename}`;
-        }
-
-        // Tarkista, onko sama tiedosto jo tallennettu
-        const existingFile = await pool.query(
-          `SELECT id FROM submission_files 
-           WHERE submission_id = $1 AND field_name = $2 AND file_name = $3`,
-          [submissionId, fieldName, file.originalname]
-        );
-
-        // Tallenna vain jos tiedostoa ei ole jo tallennettu
-        if (existingFile.rows.length === 0) {
-          await pool.query(
-            `INSERT INTO submission_files (submission_id, field_name, file_name, file_url)
-             VALUES ($1, $2, $3, $4)`,
-            [submissionId, fieldName, file.originalname, fileUrl]
-          );
-        }
-      }
+      await persistUploadedFiles(submissionId, files, req.body);
     }
 
     res.json({ success: true, submissionId });
@@ -348,44 +365,8 @@ export const submitForm = async (req: Request, res: Response) => {
       }
     }
 
-    // Save files
     if (files && files.length > 0) {
-      // Parse field names from request
-      const fieldNames = req.body.fieldNames ? JSON.parse(req.body.fieldNames) : {};
-      const USE_S3 = !!process.env.AWS_S3_BUCKET_NAME;
-      
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fieldName = fieldNames[file.originalname] || req.body.fieldName || 'general';
-        
-        let fileUrl: string;
-        
-        if (USE_S3) {
-          // Upload to S3
-          const fileKey = `${uuidv4()}${path.extname(file.originalname)}`;
-          const fileBuffer = file.buffer;
-          fileUrl = await uploadToS3(fileKey, fileBuffer, file.mimetype);
-        } else {
-          // Local filesystem (fallback for development)
-          fileUrl = `/uploads/${file.filename}`;
-        }
-
-        // Tarkista, onko sama tiedosto jo tallennettu
-        const existingFile = await pool.query(
-          `SELECT id FROM submission_files 
-           WHERE submission_id = $1 AND field_name = $2 AND file_name = $3`,
-          [submissionId, fieldName, file.originalname]
-        );
-
-        // Tallenna vain jos tiedostoa ei ole jo tallennettu
-        if (existingFile.rows.length === 0) {
-          await pool.query(
-            `INSERT INTO submission_files (submission_id, field_name, file_name, file_url)
-             VALUES ($1, $2, $3, $4)`,
-            [submissionId, fieldName, file.originalname, fileUrl]
-          );
-        }
-      }
+      await persistUploadedFiles(submissionId, files, req.body);
     }
 
     // Determine version + parent submission for history
