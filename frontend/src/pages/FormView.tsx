@@ -98,6 +98,27 @@ export default function FormView() {
     }
   };
 
+  const handleDownloadFile = async (fileId: number, fileName: string) => {
+    if (!token) return;
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/form/${token}/file/${fileId}`,
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName || `file-${fileId}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Error downloading file:', error);
+      alert(error.response?.data?.error || 'Tiedoston lataus epäonnistui');
+    }
+  };
+
   if (loading) {
     return <div className="container">Ladataan lomaketta...</div>;
   }
@@ -125,6 +146,7 @@ export default function FormView() {
             await fetchData();
           }}
           onDeleteFile={handleDeleteFile}
+          onDownloadFile={handleDownloadFile}
           onNext={() => setCurrentSection(2)}
         />
       ) : (
@@ -137,6 +159,7 @@ export default function FormView() {
             await fetchData();
           }}
           onDeleteFile={handleDeleteFile}
+          onDownloadFile={handleDownloadFile}
           onSubmit={handleSubmit}
           onBack={async () => {
             // Reload data before going back to ensure latest data is shown

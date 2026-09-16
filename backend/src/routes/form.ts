@@ -1,5 +1,5 @@
 import express from 'express';
-import { saveSubmission, getSubmissionByToken, submitForm, deleteFile } from '../controllers/formController';
+import { saveSubmission, getSubmissionByToken, submitForm, deleteFile, downloadFormFile } from '../controllers/formController';
 import { upload } from '../middleware/upload';
 
 const router = express.Router();
@@ -16,6 +16,7 @@ const handleMulterError = (err: any, req: express.Request, res: express.Response
 };
 
 // Public route - no authentication needed (uses token in URL)
+router.get('/:token/file/:fileId', downloadFormFile);
 router.get('/:token', getSubmissionByToken);
 router.post('/:token/save', upload.array('files', 20), handleMulterError, saveSubmission);
 router.post('/:token/submit', upload.array('files', 20), handleMulterError, submitForm);

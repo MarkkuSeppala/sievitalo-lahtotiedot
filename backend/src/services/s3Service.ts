@@ -32,23 +32,9 @@ export async function uploadToS3(
 
   await s3Client.send(command);
 
-  // Return the S3 URL (public or presigned URL)
-  // If bucket is public, we can use direct URL. Otherwise, we'll use presigned URLs.
-  if (process.env.AWS_S3_PUBLIC_URL) {
-    return `${process.env.AWS_S3_PUBLIC_URL}/${key}`;
-  }
-  
-  // Generate presigned URL (valid for 7 days - AWS S3 maximum)
-  const presignedUrl = await getSignedUrl(
-    s3Client,
-    new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-    }),
-    { expiresIn: 604800 } // 7 days (AWS S3 maximum for presigned URLs)
-  );
-  
-  return presignedUrl;
+  // Store the object key in DB (not a time-limited presigned URL).
+  // Downloads always go through the API, which fetches by key.
+  return key;
 }
 
 /**

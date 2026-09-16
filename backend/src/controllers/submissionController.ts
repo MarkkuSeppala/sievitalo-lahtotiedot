@@ -308,6 +308,14 @@ export const getSubmissionFileRedirect = async (req: AuthRequest, res: Response)
         console.error(`[FILE] Error reading submission file: ${error?.message || error}`);
         return res.status(404).json({ error: 'File not found' });
       }
+    } else if (USE_S3) {
+      // Plain S3 object key stored in DB (no expiry)
+      try {
+        fileBuffer = await downloadFromS3(fileUrl);
+      } catch (error: any) {
+        console.error(`[FILE] Error downloading file from S3 key: ${error?.message || error}`);
+        return res.status(404).json({ error: 'File not found' });
+      }
     } else {
       return res.status(400).json({ error: 'Unsupported file URL format' });
     }
@@ -591,6 +599,17 @@ export const exportSubmissionZip = async (req: AuthRequest, res: Response) => {
           console.error(`[ZIP] Error reading file ${filePath}:`, error?.message || error);
           filesSkipped++;
           continue; // Skip this file if read fails
+        }
+      } else if (USE_S3) {
+        // Plain S3 object key stored in DB
+        try {
+          fileBuffer = await downloadFromS3(fileUrl);
+          console.log(`[ZIP] Successfully downloaded ${fileName} from S3 key, size: ${fileBuffer.length} bytes`);
+          filesProcessed++;
+        } catch (error: any) {
+          console.error(`[ZIP] Error downloading file ${fileName} from S3 key:`, error?.message || error);
+          filesSkipped++;
+          continue;
         }
       } else {
         console.error(`[ZIP] Unknown file URL format: ${fileUrl}`);

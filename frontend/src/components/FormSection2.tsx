@@ -6,12 +6,13 @@ interface FormSection2Props {
   token: string;
   onSave: (fields: any, pendingFiles?: PendingFormFile[]) => void;
   onDeleteFile: (fileId: number) => void;
+  onDownloadFile: (fileId: number, fileName: string) => void;
   onSubmit: (fields: any, pendingFiles?: PendingFormFile[]) => void;
   onBack: () => void;
   saving: boolean;
 }
 
-export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onBack, saving }: FormSection2Props) {
+export default function FormSection2({ data, onSave, onDeleteFile, onDownloadFile, onSubmit, onBack, saving }: FormSection2Props) {
   const [fields, setFields] = useState<any>({
     vesijohtotiedot: '',
     salaoja_sadevesi: '',
@@ -48,16 +49,21 @@ export default function FormSection2({ data, onSave, onDeleteFile, onSubmit, onB
         <ul style={{ marginTop: '4px', marginLeft: '20px', listStyleType: 'disc' }}>
           {files.map((file: any, idx: number) => (
             <li key={idx} style={{ marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <a 
-                href={file.url.startsWith('http://') || file.url.startsWith('https://') 
-                  ? file.url 
-                  : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${file.url}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                style={{ color: '#007bff', textDecoration: 'underline' }}
+              <button
+                type="button"
+                onClick={() => file.id && onDownloadFile(file.id, file.name)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#007bff',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  padding: 0,
+                  font: 'inherit'
+                }}
               >
                 {file.name}
-              </a>
+              </button>
               <button
                 type="button"
                 onClick={() => file.id && onDeleteFile(file.id)}

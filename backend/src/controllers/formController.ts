@@ -3,7 +3,7 @@ import { pool } from '../db';
 import path from 'path';
 import fs from 'fs';
 import { sendFormSubmissionEmail } from '../services/emailService';
-import { uploadToS3, deleteFromS3 } from '../services/s3Service';
+import { uploadToS3, downloadFromS3 } from '../services/s3Service';
 import { v4 as uuidv4 } from 'uuid';
 import {
   decodeUploadedFilename,
@@ -237,6 +237,78 @@ export const saveSubmission = async (req: Request, res: Response) => {
   }
 };
 
+export const downloadFormFile = async (req: Request, res: Response) => {
+  try {
+    const { token, fileId } = req.params;
+
+    const customerResult = await pool.query(
+      'SELECT id FROM customers WHERE token = $1',
+      [token]
+    );
+
+    if (customerResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Invalid token' });
+    }
+
+    const customerId = customerResult.rows[0].id;
+
+    // Allow download from current draft (what the form shows).
+    const submissionResult = await pool.query(
+      `SELECT id FROM submissions
+       WHERE customer_id = $1 AND status = 'draft'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [customerId]
+    );
+
+    if (submissionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+
+    const submissionId = submissionResult.rows[0].id;
+
+    const fileResult = await pool.query(
+      'SELECT file_url, file_name FROM submission_files WHERE id = $1 AND submission_id = $2',
+      [fileId, submissionId]
+    );
+
+    if (fileResult.rows.length === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    const { file_url: fileUrl, file_name: fileName } = fileResult.rows[0];
+    const USE_S3 = !!process.env.AWS_S3_BUCKET_NAME;
+    const uploadDir = process.env.UPLOAD_DIR || './uploads';
+    let fileBuffer: Buffer;
+
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://') || (USE_S3 && !fileUrl.startsWith('/uploads/'))) {
+      try {
+        // Full URL (legacy presigned) or plain S3 object key
+        fileBuffer = await downloadFromS3(fileUrl);
+      } catch (error: any) {
+        console.error(`[FORM FILE] Error downloading from S3: ${error?.message || error}`);
+        return res.status(404).json({ error: 'File not found' });
+      }
+    } else if (fileUrl.startsWith('/uploads/')) {
+      const filePath = path.join(uploadDir, path.basename(fileUrl));
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+      fileBuffer = fs.readFileSync(filePath);
+    } else {
+      return res.status(400).json({ error: 'Unsupported file URL format' });
+    }
+
+    const safeFileName = (fileName || `file-${fileId}`).replace(/["\r\n]/g, '_');
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"`);
+    return res.status(200).send(fileBuffer);
+  } catch (error) {
+    console.error('Download form file error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export const deleteFile = async (req: Request, res: Response) => {
   try {
     const { token, fileId } = req.params;
@@ -278,8 +350,6 @@ export const deleteFile = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    const fileUrl = fileResult.rows[0].file_url;
-    
     // Delete file reference from database only (do NOT delete the underlying file).
     // The same file_url can be referenced by older submitted versions.
     await pool.query(
