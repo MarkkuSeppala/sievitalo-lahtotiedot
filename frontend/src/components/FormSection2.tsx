@@ -466,7 +466,7 @@ export default function FormSection2({ data, onSave, onDeleteFile, onDownloadFil
               checked={fields.liesituuletin === 'induktioliesi'}
               onChange={(e) => handleChange('liesituuletin', e.target.value)}
             />
-            <label htmlFor="liesi_induktioliesi">Indukti liesi aktiivihiilisuodattimella (asiakashankintana)</label>
+            <label htmlFor="liesi_induktioliesi">Induktio liesi aktiivihiilisuodattimella (asiakashankintana)</label>
           </div>
           <div className="radio-option">
             <input
