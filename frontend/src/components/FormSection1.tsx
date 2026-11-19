@@ -231,9 +231,8 @@ export default function FormSection1({ data, customer, onSave, onDeleteFile, onD
           Useimmista kunnista on maksua vastaan saatavilla tietopaketti, joka sisältää kaavaotteen,
           kaavamääräykset, rakentamistapaohjeet sekä virallisen tonttikartan dwg-muodossa.
         </p>
-        <p>Dwg-muotoinen tonttikartta muodostuu usein myös maaperätutkimuksen yhteydessä.</p>
-        <p>
-          Mikäli dwg-karttaa ei saa noista lähteistä, se pitää tilata Maanmittauslaitokselta.{' '}
+          <p>
+          Mikäli virallista, dwg-muotoista karttaa ei saa noista lähteistä, se pitää tilata Maanmittauslaitokselta.{' '}
           <a href="https://www.maanmittauslaitos.fi/kartat-ja-paikkatieto/kartat/osta-kartta" target="_blank" rel="noopener noreferrer">
             Maanmittauslaitos karttakauppa
           </a>
